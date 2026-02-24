@@ -126,13 +126,25 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
   <!-- SETUP -->
   <div class="setup-overlay" id="setupOverlay">
     <div class="setup-title">Setup Your Agent</div>
-    <p class="setup-sub">Keys are saved only in your browser — never sent anywhere except OpenAI and GitHub directly.</p>
+    <p class="setup-sub">Keys are saved only in your browser. Never shared anywhere else.</p>
     <div class="setup-section">
       <label class="setup-label">Your Name</label>
       <input class="setup-input" id="s_name" placeholder="e.g. Fahad"/>
     </div>
     <div class="setup-section">
-      <label class="setup-label">OpenAI API Key</label>
+      <label class="setup-label">Active AI Brain</label>
+      <select class="setup-input" id="s_brain">
+        <option value="gemini">Google Gemini (Free — AI Studio)</option>
+        <option value="openai">OpenAI GPT-4o-mini (Paid — needs card)</option>
+      </select>
+      <p style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">You can fill in both keys. Switch brain anytime from here.</p>
+    </div>
+    <div class="setup-section">
+      <label class="setup-label">Google Gemini API Key <span style="color:var(--accent2);font-size:10px;">(Free — get at aistudio.google.com)</span></label>
+      <input class="setup-input" id="s_gemini" type="password" placeholder="AIza..."/>
+    </div>
+    <div class="setup-section">
+      <label class="setup-label">OpenAI API Key <span style="color:var(--muted);font-size:10px;">(Add later when you get a card)</span></label>
       <input class="setup-input" id="s_openai" type="password" placeholder="sk-proj-..."/>
     </div>
     <div class="setup-section">
@@ -239,7 +251,9 @@ function closeSetup() { document.getElementById('setupOverlay').classList.remove
 
 function loadForm() {
   document.getElementById('s_name').value       = get('userName','');
+  document.getElementById('s_gemini').value     = get('geminiKey','');
   document.getElementById('s_openai').value     = get('openaiKey','');
+  document.getElementById('s_brain').value      = get('brain','gemini');
   document.getElementById('s_github').value     = get('githubToken','');
   document.getElementById('s_repo1').value      = get('repo1','Fadjumah/rose-gallery-hub-18');
   document.getElementById('s_repo1_name').value = get('repo1name','');
@@ -247,7 +261,7 @@ function loadForm() {
   document.getElementById('s_prefs').value      = get('prefs','');
   const m = mem();
   const txt = Object.entries(m)
-    .filter(([k]) => !['openaiKey','githubToken','conversation'].includes(k))
+    .filter(([k]) => !['openaiKey','geminiKey','githubToken','conversation'].includes(k))
     .map(([k,v]) => `${k}: ${typeof v==='object'?JSON.stringify(v):v}`)
     .join('\n') || 'Nothing saved yet.';
   document.getElementById('memoryDisplay').textContent = txt;
@@ -255,7 +269,9 @@ function loadForm() {
 
 function saveSetup() {
   set('userName',   document.getElementById('s_name').value.trim());
+  set('geminiKey',  document.getElementById('s_gemini').value.trim());
   set('openaiKey',  document.getElementById('s_openai').value.trim());
+  set('brain',      document.getElementById('s_brain').value);
   set('githubToken',document.getElementById('s_github').value.trim());
   set('repo1',      document.getElementById('s_repo1').value.trim());
   set('repo1name',  document.getElementById('s_repo1_name').value.trim());
@@ -270,7 +286,7 @@ function saveSetup() {
 
 // ── UI ───────────────────────────────────────────────────────────────────────
 function updateStatus() {
-  const hasKeys = get('openaiKey') && get('githubToken');
+  const hasKeys = (get('geminiKey') || get('openaiKey')) && get('githubToken');
   const n = get('userName',''); const rn = get('repo1name','');
   document.getElementById('statusDot').className = 'status-dot' + (hasKeys?' ready':'');
   document.getElementById('statusText').textContent = hasKeys ? ('Ready'+(rn?' · '+rn:'')) : 'Tap ⚙️ to add your API keys';
@@ -362,23 +378,70 @@ WHEN YOU LEARN AN IMPORTANT NEW FACT ABOUT THE USER, append:
 PERSONALITY: Warm, direct, plain language. Speak like a trusted technical friend. Always say what you're about to do before doing it. Never delete without explicit confirmation.`;
 }
 
-// ── OPENAI CALL ──────────────────────────────────────────────────────────────
+// ── AI BRAIN ROUTER ──────────────────────────────────────────────────────────
+async function callAI(userMsg) {
+  const brain = get('brain','gemini');
+  if (brain === 'openai') return await callOpenAI(userMsg);
+  return await callGemini(userMsg);
+}
+
+async function callGemini(userMsg) {
+  const key = get('geminiKey','');
+  if (!key) throw new Error('No Gemini API key. Tap ⚙️ → add your Gemini key from aistudio.google.com');
+
+  const history = get('conversation',[]).slice(-20);
+  // Build Gemini contents array — system prompt goes as first user turn
+  const contents = [];
+  // Prepend system prompt as a user/model exchange (Gemini doesn't have a system role)
+  contents.push({role:'user', parts:[{text: sysPrompt() + '\n\nUnderstood. I am ready to help.'}]});
+  contents.push({role:'model', parts:[{text:'Understood. I am ready to help.'}]});
+  // Add conversation history
+  for (const m of history) {
+    contents.push({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{text: m.content}]
+    });
+  }
+  // Add current message
+  contents.push({role:'user', parts:[{text: userMsg}]});
+
+  const payload = JSON.stringify({
+    contents,
+    generationConfig: {maxOutputTokens:2000, temperature:0.7}
+  });
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:payload});
+
+  if (!r.ok) {
+    const e = await r.json().catch(()=>({}));
+    const msg = e.error?.message || `HTTP ${r.status}`;
+    if (r.status===400) throw new Error('Invalid Gemini API key — please check it in ⚙️ Settings.');
+    if (r.status===429) throw new Error('Gemini rate limit hit. Wait 30 seconds and try again — the free tier allows 60 requests/minute.');
+    throw new Error('Gemini error: ' + msg);
+  }
+
+  const data = await r.json();
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error('Gemini returned an empty response. Please try again.');
+  return text;
+}
+
 async function callOpenAI(userMsg) {
   const key = get('openaiKey','');
-  if (!key) throw new Error('No OpenAI API key. Tap ⚙️ to add it.');
+  if (!key) throw new Error('No OpenAI API key. Tap ⚙️ to add it. For now, use Gemini (free) instead.');
 
   const history = get('conversation',[]).slice(-20).map(m=>({role:m.role,content:m.content}));
   const messages = [{role:'system',content:sysPrompt()},...history,{role:'user',content:userMsg}];
   const payload = JSON.stringify({model:'gpt-4o-mini',messages,max_tokens:2000,temperature:0.7});
   const hdrs = {'Content-Type':'application/json','Authorization':`Bearer ${key}`};
 
-  // Direct call — works when hosted on https:// (GitHub Pages)
   const r = await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:hdrs,body:payload});
   if (!r.ok) {
     const e = await r.json().catch(()=>({}));
     const msg = e.error?.message || `HTTP ${r.status}`;
     if (r.status===401||r.status===403) throw new Error('Invalid OpenAI API key — please check it in ⚙️ Settings.');
-    if (r.status===429) throw new Error('OpenAI rate limit or insufficient credits. Check your usage at platform.openai.com/account/usage');
+    if (r.status===429) throw new Error('OpenAI rate limit or insufficient credits. Check platform.openai.com/account/usage');
     throw new Error(msg);
   }
   const data = await r.json();
@@ -485,7 +548,7 @@ async function sendMessage() {
   document.getElementById('statusText').textContent='Thinking…';
   showTyping();
   try {
-    const response = await callOpenAI(text);
+    const response = await callAI(text);
     hideTyping();
     const el = addAI('');
     await handleResponse(response, el);
