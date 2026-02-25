@@ -4,7 +4,6 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>My AI Agent</title>
-<!-- Preconnect for speed -->
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"/>
@@ -54,6 +53,7 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
 .memory-display{background:white;border:1px solid var(--border);border-radius:10px;padding:14px;font-size:12px;color:var(--muted);line-height:1.7;min-height:60px;white-space:pre-wrap;word-break:break-word;}
 .clear-btn{background:transparent;border:1px solid #e0a0a0;color:#c04040;border-radius:8px;padding:8px 16px;font-family:'Geist Mono',monospace;font-size:11px;cursor:pointer;margin-top:8px;transition:background 0.15s;}
 .clear-btn:hover{background:#fff0f0;}
+.secure-badge{display:inline-flex;align-items:center;gap:5px;background:#f0f9f4;border:1px solid #a8dfc0;border-radius:8px;padding:8px 12px;font-size:11px;color:var(--accent2);margin-bottom:20px;}
 
 /* MESSAGES */
 .messages{flex:1;overflow-y:auto;padding:20px 18px 10px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth;}
@@ -123,34 +123,26 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
 <body>
 <div class="shell">
 
-  <!-- SETUP -->
+  <!-- SETUP OVERLAY -->
   <div class="setup-overlay" id="setupOverlay">
     <div class="setup-title">Setup Your Agent</div>
-    <p class="setup-sub">Keys are saved only in your browser. Never shared anywhere else.</p>
+    <div class="secure-badge">🔒 API keys live only on the server — never in your browser</div>
+    <p class="setup-sub">Your name, repo, and preferences are saved in your browser. API keys (Gemini, OpenAI, GitHub) are stored securely as Vercel environment variables — they never leave the server.</p>
+
     <div class="setup-section">
       <label class="setup-label">Your Name</label>
       <input class="setup-input" id="s_name" placeholder="e.g. Fahad"/>
     </div>
+
     <div class="setup-section">
       <label class="setup-label">Active AI Brain</label>
       <select class="setup-input" id="s_brain">
         <option value="gemini">Google Gemini (Free — AI Studio)</option>
-        <option value="openai">OpenAI GPT-4o-mini (Paid — needs card)</option>
+        <option value="openai">OpenAI GPT-4o-mini (Paid)</option>
       </select>
-      <p style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">You can fill in both keys. Switch brain anytime from here.</p>
+      <p style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Both Gemini and OpenAI keys are already configured on the server. Switch brain anytime.</p>
     </div>
-    <div class="setup-section">
-      <label class="setup-label">Google Gemini API Key <span style="color:var(--accent2);font-size:10px;">(Free — get at aistudio.google.com)</span></label>
-      <input class="setup-input" id="s_gemini" type="password" placeholder="AIza..."/>
-    </div>
-    <div class="setup-section">
-      <label class="setup-label">OpenAI API Key <span style="color:var(--muted);font-size:10px;">(Add later when you get a card)</span></label>
-      <input class="setup-input" id="s_openai" type="password" placeholder="sk-proj-..."/>
-    </div>
-    <div class="setup-section">
-      <label class="setup-label">GitHub Personal Access Token</label>
-      <input class="setup-input" id="s_github" type="password" placeholder="ghp_..."/>
-    </div>
+
     <div class="setup-section">
       <label class="setup-label">Your GitHub Repo</label>
       <div class="repo-row">
@@ -158,19 +150,23 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
         <input class="setup-input" id="s_repo1_name" placeholder="Nickname e.g. ENT Site"/>
       </div>
     </div>
+
     <div class="setup-section">
       <label class="setup-label">About You & Your Projects</label>
       <textarea class="setup-input" id="s_about" placeholder="e.g. I run a medical ENT clinic website in Uganda called eritageentcare.com. I'm not a developer. I prefer plain explanations..."></textarea>
     </div>
+
     <div class="setup-section">
       <label class="setup-label">Your Preferences</label>
       <textarea class="setup-input" id="s_prefs" placeholder="e.g. Always explain what you're doing before doing it. Warn me before deleting anything..."></textarea>
     </div>
+
     <div class="setup-section">
       <label class="setup-label">What I Remember About You</label>
       <div class="memory-display" id="memoryDisplay">Nothing saved yet.</div>
       <button class="clear-btn" onclick="clearMemory()">🗑 Clear All Memory</button>
     </div>
+
     <button class="save-btn" onclick="saveSetup()">Save & Start Chatting →</button>
   </div>
 
@@ -208,7 +204,7 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
   <div style="padding:0 14px 4px;display:flex;align-items:center;">
     <div class="status-pill">
       <div class="status-dot" id="statusDot"></div>
-      <span id="statusText">Tap ⚙️ to add your API keys</span>
+      <span id="statusText">Ready</span>
     </div>
   </div>
 
@@ -224,15 +220,15 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
 
 </div>
 <script>
-// ── MEMORY ───────────────────────────────────────────────────────────────────
-const MEM = 'aiagent_v2';
+// ── MEMORY (browser localStorage — no keys stored here) ──────────────────────
+const MEM = 'aiagent_v3';
 const mem = () => { try { return JSON.parse(localStorage.getItem(MEM)||'{}'); } catch { return {}; } };
 const saveMem = d => localStorage.setItem(MEM, JSON.stringify(d));
 const get = (k, def=null) => mem()[k] ?? def;
 const set = (k, v) => { const m=mem(); m[k]=v; saveMem(m); };
 
 function clearMemory() {
-  if (!confirm('Clear all memory? This removes your name, keys, repos and chat history.')) return;
+  if (!confirm('Clear all memory? This removes your name, repo settings and chat history.')) return;
   localStorage.removeItem(MEM);
   loadForm();
   addAI('Memory cleared. Tap ⚙️ to set up again.');
@@ -246,38 +242,32 @@ function pushConvo(role, content) {
 }
 
 // ── SETUP ────────────────────────────────────────────────────────────────────
-function openSetup() { loadForm(); document.getElementById('setupOverlay').classList.add('open'); }
+function openSetup()  { loadForm(); document.getElementById('setupOverlay').classList.add('open'); }
 function closeSetup() { document.getElementById('setupOverlay').classList.remove('open'); }
 
 function loadForm() {
   document.getElementById('s_name').value       = get('userName','');
-  document.getElementById('s_gemini').value     = get('geminiKey','');
-  document.getElementById('s_openai').value     = get('openaiKey','');
   document.getElementById('s_brain').value      = get('brain','gemini');
-  document.getElementById('s_github').value     = get('githubToken','');
   document.getElementById('s_repo1').value      = get('repo1','Fadjumah/rose-gallery-hub-18');
   document.getElementById('s_repo1_name').value = get('repo1name','');
   document.getElementById('s_about').value      = get('about','');
   document.getElementById('s_prefs').value      = get('prefs','');
   const m = mem();
   const txt = Object.entries(m)
-    .filter(([k]) => !['openaiKey','geminiKey','githubToken','conversation'].includes(k))
+    .filter(([k]) => !['conversation'].includes(k))
     .map(([k,v]) => `${k}: ${typeof v==='object'?JSON.stringify(v):v}`)
     .join('\n') || 'Nothing saved yet.';
   document.getElementById('memoryDisplay').textContent = txt;
 }
 
 function saveSetup() {
-  set('userName',   document.getElementById('s_name').value.trim());
-  set('geminiKey',  document.getElementById('s_gemini').value.trim());
-  set('openaiKey',  document.getElementById('s_openai').value.trim());
-  set('brain',      document.getElementById('s_brain').value);
-  set('githubToken',document.getElementById('s_github').value.trim());
-  set('repo1',      document.getElementById('s_repo1').value.trim());
-  set('repo1name',  document.getElementById('s_repo1_name').value.trim());
-  set('about',      document.getElementById('s_about').value.trim());
-  set('prefs',      document.getElementById('s_prefs').value.trim());
-  set('setupDone',  true);
+  set('userName',  document.getElementById('s_name').value.trim());
+  set('brain',     document.getElementById('s_brain').value);
+  set('repo1',     document.getElementById('s_repo1').value.trim());
+  set('repo1name', document.getElementById('s_repo1_name').value.trim());
+  set('about',     document.getElementById('s_about').value.trim());
+  set('prefs',     document.getElementById('s_prefs').value.trim());
+  set('setupDone', true);
   closeSetup();
   updateStatus();
   const n = get('userName','');
@@ -286,18 +276,18 @@ function saveSetup() {
 
 // ── UI ───────────────────────────────────────────────────────────────────────
 function updateStatus() {
-  const hasKeys = (get('geminiKey') || get('openaiKey')) && get('githubToken');
-  const n = get('userName',''); const rn = get('repo1name','');
-  document.getElementById('statusDot').className = 'status-dot' + (hasKeys?' ready':'');
-  document.getElementById('statusText').textContent = hasKeys ? ('Ready'+(rn?' · '+rn:'')) : 'Tap ⚙️ to add your API keys';
-  if (n) document.getElementById('agentName').textContent = n+"'s Agent";
-  if (rn) document.getElementById('agentSub').textContent = rn;
+  const n  = get('userName','');
+  const rn = get('repo1name','');
+  document.getElementById('statusDot').className = 'status-dot ready';
+  document.getElementById('statusText').textContent = 'Ready' + (rn?' · '+rn:'') + (n?' · '+n:'');
+  if (n)  document.getElementById('agentName').textContent = n+"'s Agent";
+  if (rn) document.getElementById('agentSub').textContent  = rn;
 }
 
 function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
-function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
-function quickSend(t) { document.getElementById('userInput').value=t; sendMessage(); }
-function scrollBot() { const m=document.getElementById('messages'); setTimeout(()=>m.scrollTop=m.scrollHeight,50); }
+function handleKey(e)   { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+function quickSend(t)   { document.getElementById('userInput').value=t; sendMessage(); }
+function scrollBot()    { const m=document.getElementById('messages'); setTimeout(()=>m.scrollTop=m.scrollHeight,50); }
 
 function clearChat() {
   const msgs=document.getElementById('messages'); msgs.innerHTML='';
@@ -329,7 +319,9 @@ function showTyping() {
 }
 function hideTyping() { const t=document.getElementById('typing'); if(t) t.remove(); }
 
-function esc(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>'); }
+function esc(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>');
+}
 
 function fmt(text) {
   text = text.replace(/```([\s\S]*?)```/g,'<pre>$1</pre>');
@@ -378,138 +370,83 @@ WHEN YOU LEARN AN IMPORTANT NEW FACT ABOUT THE USER, append:
 PERSONALITY: Warm, direct, plain language. Speak like a trusted technical friend. Always say what you're about to do before doing it. Never delete without explicit confirmation.`;
 }
 
-// ── AI BRAIN ROUTER ──────────────────────────────────────────────────────────
+// ── AI CALL (via secure backend) ─────────────────────────────────────────────
 async function callAI(userMsg) {
-  const brain = get('brain','gemini');
-  if (brain === 'openai') return await callOpenAI(userMsg);
-  return await callGemini(userMsg);
-}
+  const provider = get('brain','gemini');
+  const history  = get('conversation',[]).slice(-20);
 
-async function callGemini(userMsg) {
-  const key = get('geminiKey','');
-  if (!key) throw new Error('No Gemini API key. Tap ⚙️ → add your Gemini key from aistudio.google.com');
-
-  const history = get('conversation',[]).slice(-20);
-  // Build Gemini contents array — system prompt goes as first user turn
-  const contents = [];
-  // Prepend system prompt as a user/model exchange (Gemini doesn't have a system role)
-  contents.push({role:'user', parts:[{text: sysPrompt() + '\n\nUnderstood. I am ready to help.'}]});
-  contents.push({role:'model', parts:[{text:'Understood. I am ready to help.'}]});
-  // Add conversation history
-  for (const m of history) {
-    contents.push({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{text: m.content}]
-    });
-  }
-  // Add current message
-  contents.push({role:'user', parts:[{text: userMsg}]});
-
-  const payload = JSON.stringify({
-    contents,
-    generationConfig: {maxOutputTokens:2000, temperature:0.7}
+  const r = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      provider,
+      systemPrompt: sysPrompt(),
+      history,
+      userMessage: userMsg,
+    }),
   });
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
-  const r = await fetch(url, {method:'POST', headers:{'Content-Type':'application/json'}, body:payload});
-
-  if (!r.ok) {
-    const e = await r.json().catch(()=>({}));
-    const msg = e.error?.message || `HTTP ${r.status}`;
-    if (r.status===400) throw new Error('Invalid Gemini API key — please check it in ⚙️ Settings.');
-    if (r.status===429) throw new Error('Gemini rate limit hit. Wait 30 seconds and try again — the free tier allows 60 requests/minute.');
-    throw new Error('Gemini error: ' + msg);
-  }
-
   const data = await r.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Gemini returned an empty response. Please try again.');
-  return text;
+  if (!r.ok) throw new Error(data.error || `Server error: HTTP ${r.status}`);
+  if (!data.response) throw new Error('Empty response from server.');
+  return data.response;
 }
 
-async function callOpenAI(userMsg) {
-  const key = get('openaiKey','');
-  if (!key) throw new Error('No OpenAI API key. Tap ⚙️ to add it. For now, use Gemini (free) instead.');
-
-  const history = get('conversation',[]).slice(-20).map(m=>({role:m.role,content:m.content}));
-  const messages = [{role:'system',content:sysPrompt()},...history,{role:'user',content:userMsg}];
-  const payload = JSON.stringify({model:'gpt-4o-mini',messages,max_tokens:2000,temperature:0.7});
-  const hdrs = {'Content-Type':'application/json','Authorization':`Bearer ${key}`};
-
-  const r = await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',headers:hdrs,body:payload});
-  if (!r.ok) {
-    const e = await r.json().catch(()=>({}));
-    const msg = e.error?.message || `HTTP ${r.status}`;
-    if (r.status===401||r.status===403) throw new Error('Invalid OpenAI API key — please check it in ⚙️ Settings.');
-    if (r.status===429) throw new Error('OpenAI rate limit or insufficient credits. Check platform.openai.com/account/usage');
-    throw new Error(msg);
-  }
-  const data = await r.json();
-  return data.choices[0].message.content;
-}
-
-// ── GITHUB ENGINE ────────────────────────────────────────────────────────────
-async function getSHA(token,repo,path,branch) {
-  try {
-    const r = await fetch(`https://api.github.com/repos/${repo}/contents/${path}?ref=${branch}`,
-      {headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json'}});
-    if (r.status===404) return null;
-    const d = await r.json(); return d.sha||null;
-  } catch { return null; }
-}
-
-async function pushFile(token,repo,branch,path,content,msg) {
-  const sha = await getSHA(token,repo,path,branch);
-  const body = {message:msg,content:btoa(unescape(encodeURIComponent(content))),branch};
-  if (sha) body.sha = sha;
-  const r = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`,{
-    method:'PUT',
-    headers:{Authorization:`Bearer ${token}`,Accept:'application/vnd.github+json','Content-Type':'application/json'},
-    body:JSON.stringify(body)
+// ── GITHUB ENGINE (via secure backend) ───────────────────────────────────────
+async function pushFile(repo, branch, path, content, commitMessage) {
+  const r = await fetch('/api/github', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'pushFile', repo, branch, path, content, commitMessage }),
   });
-  if (!r.ok) { const e=await r.json(); throw new Error(e.message||`HTTP ${r.status}`); }
+  const data = await r.json();
+  if (!r.ok) throw new Error(data.error || `GitHub error: HTTP ${r.status}`);
+  return data;
 }
 
 async function executeDeploy(action, msgEl) {
-  const token = get('githubToken','');
-  if (!token) throw new Error('No GitHub token. Tap ⚙️ to add it.');
-  const {repo,branch,commit_message,files} = action;
+  const { repo, branch, commit_message, files } = action;
   const bubble = msgEl.querySelector('.bubble');
   let log = '';
-  const appendLog = (line,cls='') => {
-    log+=`<div class="${cls}">${line}</div>`;
-    bubble.querySelector('.deploy-log').innerHTML=log;
+  const appendLog = (line, cls='') => {
+    log += `<div class="${cls}">${line}</div>`;
+    bubble.querySelector('.deploy-log').innerHTML = log;
     scrollBot();
   };
-  bubble.innerHTML=`<strong>🚀 Deploying to GitHub...</strong><div class="deploy-progress"><div class="deploy-bar-wrap"><div class="deploy-bar" id="dBar"></div></div><div class="deploy-label" id="dLabel">Starting...</div></div><div class="deploy-log"></div>`;
-  for (let i=0;i<files.length;i++) {
-    const f=files[i];
-    document.getElementById('dBar').style.width=Math.round((i/files.length)*100)+'%';
-    document.getElementById('dLabel').textContent=`${i}/${files.length} — ${f.path}`;
-    appendLog(`→ ${f.path}`,'info');
+  bubble.innerHTML = `<strong>🚀 Deploying to GitHub...</strong><div class="deploy-progress"><div class="deploy-bar-wrap"><div class="deploy-bar" id="dBar"></div></div><div class="deploy-label" id="dLabel">Starting...</div></div><div class="deploy-log"></div>`;
+
+  for (let i=0; i<files.length; i++) {
+    const f = files[i];
+    document.getElementById('dBar').style.width = Math.round((i/files.length)*100)+'%';
+    document.getElementById('dLabel').textContent = `${i}/${files.length} — ${f.path}`;
+    appendLog(`→ ${f.path}`, 'info');
     try {
-      await pushFile(token,repo,branch||'main',f.path,f.content,commit_message||`update: ${f.path}`);
-      appendLog('  ✅ pushed','ok');
-    } catch(e) { appendLog(`  ❌ ${e.message}`,'err'); }
-    await new Promise(r=>setTimeout(r,280));
+      await pushFile(repo, branch||'main', f.path, f.content, commit_message||`update: ${f.path}`);
+      appendLog('  ✅ pushed', 'ok');
+    } catch(e) {
+      appendLog(`  ❌ ${e.message}`, 'err');
+    }
+    await new Promise(r => setTimeout(r, 280));
   }
-  document.getElementById('dBar').style.width='100%';
-  document.getElementById('dLabel').textContent=`${files.length}/${files.length} complete`;
-  appendLog('','');
-  appendLog('🎉 Done! Vercel will rebuild in ~60 seconds.','ok');
+
+  document.getElementById('dBar').style.width = '100%';
+  document.getElementById('dLabel').textContent = `${files.length}/${files.length} complete`;
+  appendLog('', '');
+  appendLog('🎉 Done! Vercel will rebuild in ~60 seconds.', 'ok');
   scrollBot();
 }
 
 // ── RESPONSE HANDLER ─────────────────────────────────────────────────────────
 async function handleResponse(raw, msgEl) {
-  // Save MEMORY blocks
+  // Save [MEMORY] blocks
   for (const m of raw.matchAll(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g)) {
-    const fact=m[1].trim(); const facts=get('learnedFacts',[]);
-    if(!facts.includes(fact)){facts.push(fact);set('learnedFacts',facts);}
+    const fact = m[1].trim();
+    const facts = get('learnedFacts',[]);
+    if (!facts.includes(fact)) { facts.push(fact); set('learnedFacts', facts); }
   }
   // Extract deploy action
   const deployMatch = raw.match(/\[ACTION:DEPLOY\]([\s\S]*?)\[\/ACTION:DEPLOY\]/);
-  // Clean text
+  // Clean display text
   const displayText = raw
     .replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g,'')
     .replace(/\[ACTION:DEPLOY\][\s\S]*?\[\/ACTION:DEPLOY\]/g,'')
@@ -530,22 +467,22 @@ async function handleResponse(raw, msgEl) {
 }
 
 async function confirmDeploy(btn, actionStr) {
-  btn.parentNode.innerHTML='<em>Deploying…</em>';
+  btn.parentNode.innerHTML = '<em>Deploying…</em>';
   const action = JSON.parse(actionStr.replace(/&quot;/g,'"'));
   const el = addAI('<strong>🚀 Starting…</strong>');
-  try { await executeDeploy(action,el); }
-  catch(e) { el.querySelector('.bubble').innerHTML=`❌ Deploy failed: ${e.message}`; }
+  try { await executeDeploy(action, el); }
+  catch(e) { el.querySelector('.bubble').innerHTML = `❌ Deploy failed: ${e.message}`; }
 }
 
 // ── MAIN SEND ────────────────────────────────────────────────────────────────
 async function sendMessage() {
-  const inp = document.getElementById('userInput');
-  const text = inp.value.trim(); if(!text) return;
-  const btn = document.getElementById('sendBtn');
-  btn.disabled=true; inp.value=''; inp.style.height='auto';
-  addUser(text); pushConvo('user',text);
-  document.getElementById('statusDot').className='status-dot thinking';
-  document.getElementById('statusText').textContent='Thinking…';
+  const inp  = document.getElementById('userInput');
+  const text = inp.value.trim(); if (!text) return;
+  const btn  = document.getElementById('sendBtn');
+  btn.disabled = true; inp.value = ''; inp.style.height = 'auto';
+  addUser(text); pushConvo('user', text);
+  document.getElementById('statusDot').className = 'status-dot thinking';
+  document.getElementById('statusText').textContent = 'Thinking…';
   showTyping();
   try {
     const response = await callAI(text);
@@ -557,7 +494,7 @@ async function sendMessage() {
     hideTyping();
     addAI(`❌ <strong>Error:</strong> ${esc(e.message)}`);
   }
-  btn.disabled=false; updateStatus(); inp.focus();
+  btn.disabled = false; updateStatus(); inp.focus();
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
