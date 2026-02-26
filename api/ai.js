@@ -1,24 +1,3 @@
-async function parseBody(req) {
-  if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
-    return req.body;
-  }
-  return new Promise((resolve, reject) => {
-    const chunks = [];
-    req.on('data', chunk => chunks.push(chunk));
-    req.on('end', () => {
-      try {
-        const raw = Buffer.concat(chunks).toString('utf8');
-        resolve(raw ? JSON.parse(raw) : {});
-      } catch (e) {
-        reject(new Error('Invalid JSON: ' + e.message));
-      }
-    });
-    req.on('error', reject);
-  });
-}
-
-export const config = { api: { bodyParser: false } };
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -26,17 +5,13 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  let body;
-  try { body = await parseBody(req); }
-  catch (e) { return res.status(400).json({ error: 'Body parse error: ' + e.message }); }
-
+  const body = req.body || {};
   const { provider, systemPrompt, history = [], userMessage } = body;
   if (!userMessage) return res.status(400).json({ error: 'userMessage is required' });
   if (!provider)    return res.status(400).json({ error: 'provider is required' });
 
   try {
 
-    // ── GEMINI ────────────────────────────────────────────────────────────────
     if (provider === 'gemini') {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return res.status(500).json({ error: 'GEMINI_API_KEY not configured on server.' });
@@ -62,23 +37,23 @@ export default async function handler(req, res) {
 
       const text = await r.text();
       let data;
-      try { data = JSON.parse(text); } catch(e) { return res.status(502).json({ error: 'Gemini returned invalid JSON: ' + text.slice(0, 200) }); }
+      try { data = JSON.parse(text); }
+      catch(e) { return res.status(502).json({ error: 'Gemini returned invalid response: ' + text.slice(0, 150) }); }
 
       if (!r.ok) {
         const msg    = data.error?.message || 'HTTP ' + r.status;
         const status = data.error?.status  || '';
         if (r.status === 429 || status === 'RESOURCE_EXHAUSTED' || msg.toLowerCase().includes('quota')) {
-          return res.status(429).json({ error: 'Gemini quota exhausted. Free tier limit reached — resets at midnight Pacific time.' });
+          return res.status(429).json({ error: 'Gemini quota exhausted. Resets at midnight Pacific time.' });
         }
         return res.status(r.status).json({ error: 'Gemini error: ' + msg });
       }
 
       const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!reply) return res.status(502).json({ error: 'Gemini returned an empty response.' });
+      if (!reply) return res.status(502).json({ error: 'Gemini returned empty response.' });
       return res.status(200).json({ response: reply });
     }
 
-    // ── OPENAI ────────────────────────────────────────────────────────────────
     if (provider === 'openai') {
       const apiKey = process.env.OPENAI_API_KEY;
       if (!apiKey) return res.status(500).json({ error: 'OPENAI_API_KEY not configured on server.' });
@@ -96,7 +71,8 @@ export default async function handler(req, res) {
 
       const text = await r.text();
       let data;
-      try { data = JSON.parse(text); } catch(e) { return res.status(502).json({ error: 'OpenAI returned invalid JSON' }); }
+      try { data = JSON.parse(text); }
+      catch(e) { return res.status(502).json({ error: 'OpenAI returned invalid response' }); }
 
       if (!r.ok) {
         const msg = data.error?.message || 'HTTP ' + r.status;
@@ -106,7 +82,7 @@ export default async function handler(req, res) {
       }
 
       const reply = data.choices?.[0]?.message?.content;
-      if (!reply) return res.status(502).json({ error: 'OpenAI returned an empty response.' });
+      if (!reply) return res.status(502).json({ error: 'OpenAI returned empty response.' });
       return res.status(200).json({ response: reply });
     }
 
