@@ -392,6 +392,12 @@ DEPLOY/PUSH FILES:
 {"repo":"owner/reponame","branch":"main","commit_message":"your message","files":[{"path":"file/path","content":"full content here"}]}
 [/ACTION:DEPLOY]
 
+CRITICAL FORMAT RULE: When writing [ACTION:GITHUB] or [ACTION:DEPLOY] blocks, the JSON inside MUST be plain JSON with NO backticks, NO markdown formatting, NO code fences around it. Just raw JSON directly between the tags. Example of CORRECT format:
+[ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]
+
+Example of WRONG format (never do this):
+[ACTION:GITHUB]`{"action":"listRepos"}`[/ACTION:GITHUB]
+
 IMPORTANT — HOW GITHUB DATA WORKS:
 When Fahad asks about repos, commits, or files, the system automatically fetches the real data from GitHub BEFORE sending you this message. If you see a "LIVE GITHUB DATA" section in the message, that is real, accurate, current data — use it immediately to answer. NEVER say you are "waiting" for data, "sending a request", or that it will take a few seconds. If the data is there, answer from it directly. If no data was fetched and you need it, use an [ACTION:GITHUB] block to request it.
 
@@ -402,6 +408,30 @@ PERSONALITY: Warm, direct, plain language. Trusted technical friend. Always say 
 }
 
 // ── AI CALL (via secure backend) ─────────────────────────────────────────────
+function friendlyAIError(status, message, provider) {
+  const msg = (message || '').toLowerCase();
+  // Quota / billing exhausted
+  if (status === 429 || msg.includes('quota') || msg.includes('rate limit') || msg.includes('resource_exhausted') || msg.includes('exhausted')) {
+    if (provider === 'gemini') {
+      return `⚠️ <strong>Gemini free quota reached.</strong><br/><br/>You've hit Google's free usage limit for today. Options:<br/>
+<strong>1.</strong> Wait until midnight Pacific time — quota resets daily for free tier.<br/>
+<strong>2.</strong> Switch to OpenAI: tap ⚙️ → change brain to <em>OpenAI GPT-4o-mini</em>.<br/>
+<strong>3.</strong> Upgrade to a paid Gemini plan at <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a>.`;
+    }
+    return `⚠️ <strong>OpenAI rate limit hit.</strong> Wait a moment and try again, or check your credits at <a href="https://platform.openai.com/account/usage" target="_blank">platform.openai.com</a>.`;
+  }
+  // Invalid key
+  if (status === 401 || status === 403 || msg.includes('invalid') || msg.includes('api key')) {
+    return `🔑 <strong>API key issue.</strong> The ${provider} key on the server may be invalid or expired. Ask whoever manages the Vercel project to check the environment variables.`;
+  }
+  // Token limit on a single message
+  if (msg.includes('token') && (msg.includes('limit') || msg.includes('exceed'))) {
+    return `📏 <strong>Message too long.</strong> The conversation history is too large. Tap ✏️ to start a fresh chat and try again.`;
+  }
+  // Generic fallback
+  return `❌ <strong>AI error (${status}):</strong> ${message}`;
+}
+
 async function callAI(userMsg) {
   const provider = get('brain','gemini');
   const history  = get('conversation',[]).slice(-20);
@@ -418,7 +448,10 @@ async function callAI(userMsg) {
   });
 
   const data = await r.json();
-  if (!r.ok) throw new Error(data.error || `Server error: HTTP ${r.status}`);
+  if (!r.ok) {
+    const friendly = friendlyAIError(r.status, data.error, provider);
+    throw Object.assign(new Error(data.error || `HTTP ${r.status}`), { friendlyHTML: friendly });
+  }
   if (!data.response) throw new Error('Empty response from server.');
   return data.response;
 }
@@ -501,8 +534,8 @@ async function handleResponse(raw, msgEl) {
   // ── Process GitHub READ action ──────────────────────────────────────────────
   if (ghMatch) {
     let ghPayload;
-    try { ghPayload = JSON.parse(ghMatch[1].trim()); }
-    catch(e) { addAI(`⚠️ Couldn't parse GitHub action: ${e.message}`); return; }
+    try { ghPayload = safeParseJSON(ghMatch[1]); }
+    catch(e) { addAI(`⚠️ GitHub action had malformed JSON: ${e.message}. Please try again.`); return; }
 
     // Show a "fetching" indicator
     const fetchEl = addAI(`<em>🔍 Fetching from GitHub (${ghPayload.action})…</em>`);
@@ -539,7 +572,7 @@ async function handleResponse(raw, msgEl) {
   // ── Process GitHub DEPLOY action ────────────────────────────────────────────
   if (deployMatch) {
     try {
-      const action = JSON.parse(deployMatch[1].trim());
+      const action = safeParseJSON(deployMatch[1]);
       const cnt = action.files?.length||0;
       const safeAction = JSON.stringify(action).replace(/"/g,'&quot;');
       addAI(`<strong>Ready to deploy ${cnt} file(s) to <code>${action.repo}</code></strong><br/><br/>Shall I go ahead?<br/><button class="action-btn green" onclick="confirmDeploy(this,'${safeAction}')">✅ Yes, deploy now</button><button class="action-btn" onclick="this.closest('.msg').remove()">❌ Cancel</button>`);
@@ -558,22 +591,20 @@ async function confirmDeploy(btn, actionStr) {
 }
 
 // ── INTENT DETECTION — fetch real GitHub data BEFORE calling AI ───────────────
-const REPO_INTENTS   = /\b(repos?|repositories|repository|projects?|github\s+acc|what.*(have|do i have)|list|show me|how many)\b/i;
-const FILE_INTENTS   = /\b(read|view|show|open|look at|content of|what.?s in)\b.*\.(html|css|js|md|json|txt|py)\b/i;
-const COMMIT_INTENTS = /\b(commits?|history|changes|what.*(changed|updated|last|recent))\b/i;
+// Broad catch: any message touching repos/github/projects triggers a prefetch
+const REPO_INTENTS   = /repo|repositor|github|my projects?|my sites?|what.*(have|do i have|own)|list.*git|how many.*repo/i;
+const COMMIT_INTENTS = /\b(commits?|commit history|recent changes|what changed|last (push|update|commit))\b/i;
 
 async function prefetchGitHubContext(text) {
-  // Returns a string to inject into the AI prompt, or null if no prefetch needed
   try {
-    if (REPO_INTENTS.test(text) && /repo|repositor|github|projects?/i.test(text)) {
+    if (REPO_INTENTS.test(text)) {
       const data = await githubAPI({ action: 'listRepos' });
-      if (!data.repos) return null;
+      if (!data.repos || !data.repos.length) return 'LIVE GITHUB DATA: No repositories found in this account.';
       const lines = data.repos.map(r =>
-        `• ${r.name}${r.description ? ' — ' + r.description : ''}${r.language ? ' ['+r.language+']' : ''}  (updated: ${r.updatedAt?.slice(0,10)||'?'})`
+        `• ${r.name}${r.description ? ' — ' + r.description : ''}${r.language ? ' ['+r.language+']' : ''} (updated: ${r.updatedAt?.slice(0,10)||'?'}, ${r.private?'private':'public'})`
       ).join('\n');
-      return `LIVE GITHUB DATA (fetched right now):\nYou have ${data.total} repositor${data.total===1?'y':'ies'}:\n${lines}`;
+      return `LIVE GITHUB DATA (fetched right now — ${new Date().toISOString()}):\nFahad has ${data.total} repositor${data.total===1?'y':'ies'} on GitHub:\n${lines}`;
     }
-
     if (COMMIT_INTENTS.test(text)) {
       const repo = get('repo1','');
       if (!repo) return null;
@@ -583,10 +614,16 @@ async function prefetchGitHubContext(text) {
       return `LIVE GITHUB DATA — Recent commits for ${repo}:\n${lines}`;
     }
   } catch(e) {
-    // Prefetch failed silently — AI will respond without it
     console.warn('Prefetch failed:', e.message);
+    return `Note: GitHub data fetch failed (${e.message}). Answer from what you know.`;
   }
   return null;
+}
+
+// Safe JSON parse — strips markdown backticks the AI sometimes wraps around JSON
+function safeParseJSON(str) {
+  const cleaned = str.trim().replace(/^```json?\s*/i,'').replace(/```\s*$/,'').replace(/^`+|`+$/g,'').trim();
+  return JSON.parse(cleaned);
 }
 
 // ── MAIN SEND ────────────────────────────────────────────────────────────────
@@ -617,7 +654,7 @@ async function sendMessage() {
     pushConvo('assistant', response);
   } catch(e) {
     hideTyping();
-    addAI(`❌ <strong>Error:</strong> ${esc(e.message)}`);
+    addAI(e.friendlyHTML || `❌ <strong>Error:</strong> ${esc(e.message)}`);
   }
   btn.disabled = false; updateStatus(); inp.focus();
 }
