@@ -1,17 +1,24 @@
-// Helper: parse raw JSON body from Vercel's Node.js runtime
 async function parseBody(req) {
+  // Vercel sometimes pre-parses, sometimes doesn't — handle both
+  if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
+    return req.body;
+  }
   return new Promise((resolve, reject) => {
-    // Already parsed (e.g. by Vercel's built-in parser in some configs)
-    if (req.body && typeof req.body === 'object') return resolve(req.body);
-    let raw = '';
-    req.on('data', chunk => raw += chunk);
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
     req.on('end', () => {
-      try { resolve(raw ? JSON.parse(raw) : {}); }
-      catch (e) { reject(new Error('Invalid JSON body: ' + e.message)); }
+      try {
+        const raw = Buffer.concat(chunks).toString('utf8');
+        resolve(raw ? JSON.parse(raw) : {});
+      } catch (e) {
+        reject(new Error('Invalid JSON: ' + e.message));
+      }
     });
     req.on('error', reject);
   });
 }
+
+export const config = { api: { bodyParser: false } };
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -32,17 +39,21 @@ export default async function handler(req, res) {
 
   let body;
   try { body = await parseBody(req); }
-  catch (e) { return res.status(400).json({ error: e.message }); }
+  catch (e) { return res.status(400).json({ error: 'Body parse error: ' + e.message }); }
 
   const { action } = body;
+  if (!action) return res.status(400).json({ error: 'action is required' });
 
   try {
 
     // ── LIST ALL REPOS ────────────────────────────────────────────────────────
     if (action === 'listRepos') {
       const r = await fetch('https://api.github.com/user/repos?per_page=100&sort=updated', { headers: GH });
-      const data = await r.json();
-      if (!r.ok) return res.status(r.status).json({ error: data.message || `GitHub HTTP ${r.status}` });
+      const text = await r.text();
+      let data;
+      try { data = JSON.parse(text); } catch(e) { return res.status(502).json({ error: 'GitHub returned invalid JSON: ' + text.slice(0, 200) }); }
+      if (!r.ok) return res.status(r.status).json({ error: data.message || 'GitHub HTTP ' + r.status });
+      if (!Array.isArray(data)) return res.status(502).json({ error: 'Unexpected GitHub response shape' });
       const repos = data.map(r => ({
         name:          r.full_name,
         description:   r.description || '',
@@ -60,8 +71,9 @@ export default async function handler(req, res) {
       const { repo } = body;
       if (!repo) return res.status(400).json({ error: 'repo is required' });
       const r = await fetch(`https://api.github.com/repos/${repo}`, { headers: GH });
-      const d = await r.json();
-      if (!r.ok) return res.status(r.status).json({ error: d.message || `GitHub HTTP ${r.status}` });
+      const text = await r.text();
+      let d; try { d = JSON.parse(text); } catch(e) { return res.status(502).json({ error: 'GitHub returned invalid JSON' }); }
+      if (!r.ok) return res.status(r.status).json({ error: d.message || 'GitHub HTTP ' + r.status });
       return res.status(200).json({
         name: d.full_name, description: d.description, private: d.private,
         language: d.language, stars: d.stargazers_count, forks: d.forks_count,
@@ -75,11 +87,10 @@ export default async function handler(req, res) {
       const { repo, path = '', branch = 'main' } = body;
       if (!repo) return res.status(400).json({ error: 'repo is required' });
       const r = await fetch(`https://api.github.com/repos/${repo}/contents/${path}?ref=${branch}`, { headers: GH });
-      const data = await r.json();
-      if (!r.ok) return res.status(r.status).json({ error: data.message || `GitHub HTTP ${r.status}` });
-      const files = Array.isArray(data)
-        ? data.map(f => ({ name: f.name, path: f.path, type: f.type, size: f.size }))
-        : [];
+      const text = await r.text();
+      let data; try { data = JSON.parse(text); } catch(e) { return res.status(502).json({ error: 'GitHub returned invalid JSON' }); }
+      if (!r.ok) return res.status(r.status).json({ error: data.message || 'GitHub HTTP ' + r.status });
+      const files = Array.isArray(data) ? data.map(f => ({ name: f.name, path: f.path, type: f.type, size: f.size })) : [];
       return res.status(200).json({ files });
     }
 
@@ -88,9 +99,10 @@ export default async function handler(req, res) {
       const { repo, path, branch = 'main' } = body;
       if (!repo || !path) return res.status(400).json({ error: 'repo and path are required' });
       const r = await fetch(`https://api.github.com/repos/${repo}/contents/${path}?ref=${branch}`, { headers: GH });
-      const d = await r.json();
-      if (r.status === 404) return res.status(404).json({ error: `File not found: ${path}` });
-      if (!r.ok) return res.status(r.status).json({ error: d.message || `GitHub HTTP ${r.status}` });
+      const text = await r.text();
+      let d; try { d = JSON.parse(text); } catch(e) { return res.status(502).json({ error: 'GitHub returned invalid JSON' }); }
+      if (r.status === 404) return res.status(404).json({ error: 'File not found: ' + path });
+      if (!r.ok) return res.status(r.status).json({ error: d.message || 'GitHub HTTP ' + r.status });
       const content = Buffer.from(d.content.replace(/\n/g, ''), 'base64').toString('utf8');
       return res.status(200).json({ path: d.path, content, sha: d.sha, size: d.size, url: d.html_url });
     }
@@ -100,26 +112,26 @@ export default async function handler(req, res) {
       const { repo, branch = 'main', limit = 10 } = body;
       if (!repo) return res.status(400).json({ error: 'repo is required' });
       const r = await fetch(`https://api.github.com/repos/${repo}/commits?sha=${branch}&per_page=${limit}`, { headers: GH });
-      const data = await r.json();
-      if (!r.ok) return res.status(r.status).json({ error: data.message || `GitHub HTTP ${r.status}` });
+      const text = await r.text();
+      let data; try { data = JSON.parse(text); } catch(e) { return res.status(502).json({ error: 'GitHub returned invalid JSON' }); }
+      if (!r.ok) return res.status(r.status).json({ error: data.message || 'GitHub HTTP ' + r.status });
+      if (!Array.isArray(data)) return res.status(502).json({ error: 'Unexpected commits response' });
       const commits = data.map(c => ({
-        sha:     c.sha.slice(0, 7),
-        message: c.commit.message,
-        author:  c.commit.author.name,
-        date:    c.commit.author.date,
-        url:     c.html_url,
+        sha: c.sha.slice(0, 7), message: c.commit.message,
+        author: c.commit.author.name, date: c.commit.author.date, url: c.html_url,
       }));
       return res.status(200).json({ commits });
     }
 
-    // ── GET FILE SHA (internal use for pushFile) ──────────────────────────────
+    // ── GET FILE SHA ──────────────────────────────────────────────────────────
     if (action === 'getSHA') {
       const { repo, path, branch = 'main' } = body;
       if (!repo || !path) return res.status(400).json({ error: 'repo and path are required' });
       const r = await fetch(`https://api.github.com/repos/${repo}/contents/${path}?ref=${branch}`, { headers: GH });
       if (r.status === 404) return res.status(200).json({ sha: null });
-      const d = await r.json();
-      if (!r.ok) return res.status(r.status).json({ error: d.message || `GitHub HTTP ${r.status}` });
+      const text = await r.text();
+      let d; try { d = JSON.parse(text); } catch(e) { return res.status(502).json({ error: 'GitHub returned invalid JSON' }); }
+      if (!r.ok) return res.status(r.status).json({ error: d.message || 'GitHub HTTP ' + r.status });
       return res.status(200).json({ sha: d.sha || null });
     }
 
@@ -129,33 +141,27 @@ export default async function handler(req, res) {
       if (!repo || !path || content === undefined || !commitMessage)
         return res.status(400).json({ error: 'repo, path, content, and commitMessage are required' });
 
-      // Fetch existing SHA (required by GitHub API to update a file)
+      // Get existing SHA if file exists
       let sha = null;
       const shaR = await fetch(`https://api.github.com/repos/${repo}/contents/${path}?ref=${branch}`, { headers: GH });
       if (shaR.ok) {
-        const shaData = await shaR.json();
-        sha = shaData.sha || null;
-      } else if (shaR.status !== 404) {
-        const e = await shaR.json().catch(() => ({}));
-        return res.status(shaR.status).json({ error: e.message || `GitHub HTTP ${shaR.status}` });
+        const shaText = await shaR.text();
+        try { const shaData = JSON.parse(shaText); sha = shaData.sha || null; } catch(e) {}
       }
 
-      const putBody = {
-        message: commitMessage,
-        content: Buffer.from(content, 'utf8').toString('base64'),
-        branch,
-      };
+      const putBody = { message: commitMessage, content: Buffer.from(content, 'utf8').toString('base64'), branch };
       if (sha) putBody.sha = sha;
 
       const r = await fetch(`https://api.github.com/repos/${repo}/contents/${path}`, {
         method: 'PUT', headers: GH, body: JSON.stringify(putBody),
       });
-      const d = await r.json();
-      if (!r.ok) return res.status(r.status).json({ error: d.message || `GitHub push HTTP ${r.status}` });
+      const text = await r.text();
+      let d; try { d = JSON.parse(text); } catch(e) { return res.status(502).json({ error: 'GitHub returned invalid JSON after push' }); }
+      if (!r.ok) return res.status(r.status).json({ error: d.message || 'GitHub push HTTP ' + r.status });
       return res.status(200).json({ success: true, sha: d.content?.sha || null, url: d.content?.html_url || null });
     }
 
-    return res.status(400).json({ error: `Unknown action: "${action}"` });
+    return res.status(400).json({ error: 'Unknown action: "' + action + '"' });
 
   } catch (err) {
     console.error('GitHub handler error:', err);
