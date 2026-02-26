@@ -1,5 +1,4 @@
 export default async function handler(req, res) {
-  // CORS headers for same-origin Vercel deployment
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -20,7 +19,7 @@ export default async function handler(req, res) {
       const apiKey = process.env.GEMINI_API_KEY;
       if (!apiKey) return res.status(500).json({ error: "GEMINI_API_KEY not configured on server." });
 
-      // Build Gemini contents array — system prompt injected as first user/model pair
+      // Build contents array — inject system prompt as first user/model pair
       const contents = [];
       if (systemPrompt) {
         contents.push({ role: "user",  parts: [{ text: systemPrompt }] });
@@ -34,11 +33,15 @@ export default async function handler(req, res) {
       }
       contents.push({ role: "user", parts: [{ text: userMessage }] });
 
+      // Use stable v1 API + gemini-2.5-flash + x-goog-api-key header
       const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent",
         {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": apiKey,
+          },
           body: JSON.stringify({
             contents,
             generationConfig: { maxOutputTokens: 2000, temperature: 0.7 },
@@ -49,14 +52,15 @@ export default async function handler(req, res) {
       if (!r.ok) {
         const e = await r.json().catch(() => ({}));
         const msg = e.error?.message || `HTTP ${r.status}`;
-        if (r.status === 400) return res.status(400).json({ error: "Invalid Gemini API key configured on server." });
+        if (r.status === 400) return res.status(400).json({ error: "Gemini API key may be invalid, or request was malformed: " + msg });
         if (r.status === 429) return res.status(429).json({ error: "Gemini rate limit hit. Wait 30 seconds and try again." });
+        if (r.status === 404) return res.status(404).json({ error: "Gemini model not found. Contact support." });
         return res.status(r.status).json({ error: "Gemini error: " + msg });
       }
 
       const data = await r.json();
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) return res.status(502).json({ error: "Gemini returned an empty response." });
+      if (!text) return res.status(502).json({ error: "Gemini returned an empty response. Please try again." });
       return res.status(200).json({ response: text });
     }
 
@@ -76,7 +80,12 @@ export default async function handler(req, res) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({ model: "gpt-4o-mini", messages, max_tokens: 2000, temperature: 0.7 }),
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages,
+          max_tokens: 2000,
+          temperature: 0.7,
+        }),
       });
 
       if (!r.ok) {
@@ -96,6 +105,7 @@ export default async function handler(req, res) {
     }
 
     return res.status(400).json({ error: "Invalid provider. Use 'gemini' or 'openai'." });
+
   } catch (err) {
     console.error("AI handler error:", err);
     return res.status(500).json({ error: err.message || "Internal server error" });
