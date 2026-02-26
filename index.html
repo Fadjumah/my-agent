@@ -23,7 +23,6 @@
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html,body{height:100%;background:var(--paper);color:var(--ink);font-family:'Geist Mono',monospace;overflow:hidden;}
-
 .shell{display:flex;flex-direction:column;height:100dvh;max-width:680px;margin:0 auto;background:var(--paper);position:relative;}
 
 /* TOPBAR */
@@ -36,7 +35,7 @@ html,body{height:100%;background:var(--paper);color:var(--ink);font-family:'Geis
 .icon-btn{width:34px;height:34px;background:var(--paper2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:background 0.15s;}
 .icon-btn:hover{background:var(--paper3);}
 
-/* SETUP OVERLAY */
+/* SETUP */
 .setup-overlay{position:absolute;inset:0;background:var(--paper);z-index:100;overflow-y:auto;padding:24px 18px 40px;display:none;}
 .setup-overlay.open{display:block;}
 .setup-title{font-family:'Instrument Serif',serif;font-size:26px;margin-bottom:6px;line-height:1.2;}
@@ -59,7 +58,6 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
 .messages{flex:1;overflow-y:auto;padding:20px 18px 10px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth;}
 .messages::-webkit-scrollbar{width:3px;}
 .messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
-
 .welcome{text-align:center;padding:30px 10px 10px;}
 .welcome-icon{font-size:44px;margin-bottom:14px;}
 .welcome h2{font-family:'Instrument Serif',serif;font-size:22px;margin-bottom:8px;color:var(--ink);}
@@ -67,7 +65,6 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
 .suggestions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:4px;}
 .suggestion{background:white;border:1px solid var(--border);border-radius:20px;padding:8px 14px;font-size:12px;color:var(--ink);cursor:pointer;transition:all 0.15s;font-family:'Geist Mono',monospace;}
 .suggestion:hover{background:var(--ink);color:var(--paper);border-color:var(--ink);}
-
 .msg{display:flex;gap:10px;align-items:flex-end;animation:msgIn 0.25s ease-out;}
 @keyframes msgIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 .msg.user{flex-direction:row-reverse;}
@@ -80,18 +77,17 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
 .bubble pre{background:var(--paper2);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:11px;overflow-x:auto;margin:8px 0;white-space:pre-wrap;word-break:break-word;}
 .bubble code{background:var(--paper2);padding:1px 5px;border-radius:4px;font-size:12px;}
 .bubble strong{font-weight:600;}
+.bubble a{color:var(--accent3);}
 .bubble .action-btn{display:inline-block;background:var(--accent);color:white;border:none;border-radius:8px;padding:8px 16px;font-family:'Geist Mono',monospace;font-size:12px;cursor:pointer;margin-top:10px;margin-right:8px;transition:opacity 0.15s;}
 .bubble .action-btn:hover{opacity:0.85;}
 .bubble .action-btn.green{background:var(--accent2);}
 .bubble .action-btn.blue{background:var(--accent3);}
-
 .typing{display:flex;gap:10px;align-items:flex-end;}
 .typing-dots{background:white;border:1px solid var(--border);border-radius:16px;border-bottom-left-radius:4px;padding:14px 18px;display:flex;gap:5px;align-items:center;}
 .typing-dots span{width:6px;height:6px;background:var(--muted);border-radius:50%;animation:dot 1.2s infinite;}
 .typing-dots span:nth-child(2){animation-delay:0.2s;}
 .typing-dots span:nth-child(3){animation-delay:0.4s;}
 @keyframes dot{0%,60%,100%{transform:translateY(0);opacity:0.4;}30%{transform:translateY(-5px);opacity:1;}}
-
 .deploy-progress{margin-top:10px;}
 .deploy-bar-wrap{background:var(--paper2);border-radius:100px;height:5px;overflow:hidden;margin-bottom:5px;}
 .deploy-bar{height:100%;background:linear-gradient(90deg,var(--accent2),#38c96a);border-radius:100px;transition:width 0.4s ease;width:0%;}
@@ -112,7 +108,6 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
 .send-btn:active{transform:scale(0.94);}
 .send-btn:disabled{opacity:0.3;cursor:not-allowed;transform:none;}
 .send-btn svg{width:16px;height:16px;fill:currentColor;}
-
 .status-pill{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);padding:3px 8px;border-radius:100px;background:var(--paper2);border:1px solid var(--border);margin-bottom:8px;}
 .status-dot{width:5px;height:5px;border-radius:50%;background:#aaa;}
 .status-dot.ready{background:var(--accent2);animation:pulse 2s infinite;}
@@ -123,50 +118,43 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
 <body>
 <div class="shell">
 
-  <!-- SETUP OVERLAY -->
+  <!-- SETUP -->
   <div class="setup-overlay" id="setupOverlay">
     <div class="setup-title">Setup Your Agent</div>
     <div class="secure-badge">🔒 API keys live only on the server — never in your browser</div>
-    <p class="setup-sub">Your name, repo, and preferences are saved in your browser. API keys (Gemini, OpenAI, GitHub) are stored securely as Vercel environment variables — they never leave the server.</p>
-
+    <p class="setup-sub">Your name, repo, and preferences are saved locally. API keys (Gemini, OpenAI, GitHub) stay securely on Vercel's servers.</p>
     <div class="setup-section">
       <label class="setup-label">Your Name</label>
       <input class="setup-input" id="s_name" placeholder="e.g. Fahad"/>
     </div>
-
     <div class="setup-section">
       <label class="setup-label">Active AI Brain</label>
       <select class="setup-input" id="s_brain">
         <option value="gemini">Google Gemini (Free — AI Studio)</option>
         <option value="openai">OpenAI GPT-4o-mini (Paid)</option>
       </select>
-      <p style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Both Gemini and OpenAI keys are already configured on the server. Switch brain anytime.</p>
+      <p style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Both keys are on the server. Switch anytime. If Gemini hits its daily limit, switch to OpenAI.</p>
     </div>
-
     <div class="setup-section">
       <label class="setup-label">Your GitHub Repo</label>
       <div class="repo-row">
-        <input class="setup-input" id="s_repo1" placeholder="owner/repo" value="Fadjumah/rose-gallery-hub-18"/>
+        <input class="setup-input" id="s_repo1" placeholder="owner/repo"/>
         <input class="setup-input" id="s_repo1_name" placeholder="Nickname e.g. ENT Site"/>
       </div>
     </div>
-
     <div class="setup-section">
       <label class="setup-label">About You & Your Projects</label>
-      <textarea class="setup-input" id="s_about" placeholder="e.g. I run a medical ENT clinic website in Uganda called eritageentcare.com. I'm not a developer. I prefer plain explanations..."></textarea>
+      <textarea class="setup-input" id="s_about" placeholder="Tell the agent about yourself, your clinic, your goals..."></textarea>
     </div>
-
     <div class="setup-section">
       <label class="setup-label">Your Preferences</label>
-      <textarea class="setup-input" id="s_prefs" placeholder="e.g. Always explain what you're doing before doing it. Warn me before deleting anything..."></textarea>
+      <textarea class="setup-input" id="s_prefs" placeholder="e.g. Always explain before doing. Be direct. No jargon..."></textarea>
     </div>
-
     <div class="setup-section">
       <label class="setup-label">What I Remember About You</label>
       <div class="memory-display" id="memoryDisplay">Nothing saved yet.</div>
       <button class="clear-btn" onclick="clearMemory()">🗑 Clear All Memory</button>
     </div>
-
     <button class="save-btn" onclick="saveSetup()">Save & Start Chatting →</button>
   </div>
 
@@ -192,9 +180,9 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
       <h2>Hey, I'm your AI Agent</h2>
       <p>I know your sites, remember your preferences, and can push changes directly to GitHub. Just talk to me in plain language.</p>
       <div class="suggestions">
-        <div class="suggestion" onclick="quickSend('What sites do you know about?')">What sites do you know?</div>
-        <div class="suggestion" onclick="quickSend('Deploy all the Eritage ENT fixes to GitHub now')">Deploy ENT fixes</div>
+        <div class="suggestion" onclick="quickSend('List all my GitHub repositories')">List my GitHub repos</div>
         <div class="suggestion" onclick="quickSend('What do you remember about me?')">What do you know about me?</div>
+        <div class="suggestion" onclick="quickSend('What is today\'s date and time?')">Date & time</div>
         <div class="suggestion" onclick="quickSend('How do I add a new blog post to my site?')">How to add blog post</div>
       </div>
     </div>
@@ -203,7 +191,7 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
   <!-- STATUS -->
   <div style="padding:0 14px 4px;display:flex;align-items:center;">
     <div class="status-pill">
-      <div class="status-dot" id="statusDot"></div>
+      <div class="status-dot ready" id="statusDot"></div>
       <span id="statusText">Ready</span>
     </div>
   </div>
@@ -220,12 +208,14 @@ textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
 
 </div>
 <script>
-// ── MEMORY (browser localStorage — no keys stored here) ──────────────────────
+// ═══════════════════════════════════════════════════════
+// MEMORY
+// ═══════════════════════════════════════════════════════
 const MEM = 'aiagent_v3';
-const mem = () => { try { return JSON.parse(localStorage.getItem(MEM)||'{}'); } catch { return {}; } };
-const saveMem = d => localStorage.setItem(MEM, JSON.stringify(d));
-const get = (k, def=null) => mem()[k] ?? def;
-const set = (k, v) => { const m=mem(); m[k]=v; saveMem(m); };
+function mem()        { try { return JSON.parse(localStorage.getItem(MEM)||'{}'); } catch { return {}; } }
+function saveMem(d)   { localStorage.setItem(MEM, JSON.stringify(d)); }
+function get(k, def)  { const v = mem()[k]; return v !== undefined && v !== null ? v : (def !== undefined ? def : null); }
+function set(k, v)    { const m = mem(); m[k] = v; saveMem(m); }
 
 function clearMemory() {
   if (!confirm('Clear all memory? This removes your name, repo settings and chat history.')) return;
@@ -241,21 +231,23 @@ function pushConvo(role, content) {
   set('conversation', h);
 }
 
-// ── SETUP ────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// SETUP
+// ═══════════════════════════════════════════════════════
 function openSetup()  { loadForm(); document.getElementById('setupOverlay').classList.add('open'); }
 function closeSetup() { document.getElementById('setupOverlay').classList.remove('open'); }
 
 function loadForm() {
   document.getElementById('s_name').value       = get('userName','');
   document.getElementById('s_brain').value      = get('brain','gemini');
-  document.getElementById('s_repo1').value      = get('repo1','Fadjumah/rose-gallery-hub-18');
+  document.getElementById('s_repo1').value      = get('repo1','');
   document.getElementById('s_repo1_name').value = get('repo1name','');
   document.getElementById('s_about').value      = get('about','');
   document.getElementById('s_prefs').value      = get('prefs','');
-  const m = mem();
+  const m   = mem();
   const txt = Object.entries(m)
-    .filter(([k]) => !['conversation'].includes(k))
-    .map(([k,v]) => `${k}: ${typeof v==='object'?JSON.stringify(v):v}`)
+    .filter(([k]) => k !== 'conversation')
+    .map(([k,v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
     .join('\n') || 'Nothing saved yet.';
   document.getElementById('memoryDisplay').textContent = txt;
 }
@@ -271,398 +263,472 @@ function saveSetup() {
   closeSetup();
   updateStatus();
   const n = get('userName','');
-  addAI(`✅ All saved${n?', '+n:''}! I know your sites and preferences now. What would you like to do?`);
+  addAI('✅ All saved' + (n ? ', ' + n : '') + '! What would you like to do?');
 }
 
-// ── UI ───────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════
 function updateStatus() {
   const n  = get('userName','');
   const rn = get('repo1name','');
-  document.getElementById('statusDot').className = 'status-dot ready';
-  document.getElementById('statusText').textContent = 'Ready' + (rn?' · '+rn:'') + (n?' · '+n:'');
-  if (n)  document.getElementById('agentName').textContent = n+"'s Agent";
+  document.getElementById('statusDot').className  = 'status-dot ready';
+  document.getElementById('statusText').textContent = 'Ready' + (rn ? ' · ' + rn : '') + (n ? ' · ' + n : '');
+  if (n)  document.getElementById('agentName').textContent = n + "'s Agent";
   if (rn) document.getElementById('agentSub').textContent  = rn;
 }
 
-function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
-function handleKey(e)   { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
-function quickSend(t)   { document.getElementById('userInput').value=t; sendMessage(); }
-function scrollBot()    { const m=document.getElementById('messages'); setTimeout(()=>m.scrollTop=m.scrollHeight,50); }
+function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+function handleKey(e)   { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function quickSend(t)   { document.getElementById('userInput').value = t; sendMessage(); }
+function scrollBot()    { const m = document.getElementById('messages'); setTimeout(() => m.scrollTop = m.scrollHeight, 50); }
 
 function clearChat() {
-  const msgs=document.getElementById('messages'); msgs.innerHTML='';
-  const w=document.createElement('div'); w.className='welcome'; w.id='welcomeMsg';
-  w.innerHTML='<div class="welcome-icon">🤖</div><h2>Fresh start</h2><p>What would you like to do?</p>';
-  msgs.appendChild(w);
+  document.getElementById('messages').innerHTML =
+    '<div class="welcome" id="welcomeMsg"><div class="welcome-icon">🤖</div><h2>Fresh start</h2><p>What would you like to do?</p></div>';
 }
 
 function addUser(text) {
-  const el=document.getElementById('welcomeMsg'); if(el) el.remove();
-  const msgs=document.getElementById('messages');
-  const d=document.createElement('div'); d.className='msg user';
-  d.innerHTML=`<div class="msg-avatar">👤</div><div class="bubble">${esc(text)}</div>`;
+  const el = document.getElementById('welcomeMsg'); if (el) el.remove();
+  const msgs = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = 'msg user';
+  d.innerHTML = '<div class="msg-avatar">👤</div><div class="bubble">' + esc(text) + '</div>';
   msgs.appendChild(d); scrollBot();
 }
 
 function addAI(html) {
-  const msgs=document.getElementById('messages');
-  const d=document.createElement('div'); d.className='msg ai';
-  d.innerHTML=`<div class="msg-avatar">🤖</div><div class="bubble">${html}</div>`;
+  const msgs = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = 'msg ai';
+  d.innerHTML = '<div class="msg-avatar">🤖</div><div class="bubble">' + html + '</div>';
   msgs.appendChild(d); scrollBot(); return d;
 }
 
 function showTyping() {
-  const msgs=document.getElementById('messages');
-  const d=document.createElement('div'); d.className='typing'; d.id='typing';
-  d.innerHTML='<div class="msg-avatar" style="width:28px;height:28px;border-radius:8px;background:var(--ink);display:flex;align-items:center;justify-content:center;font-size:13px;">🤖</div><div class="typing-dots"><span></span><span></span><span></span></div>';
+  const msgs = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = 'typing'; d.id = 'typing';
+  d.innerHTML = '<div class="msg-avatar" style="width:28px;height:28px;border-radius:8px;background:var(--ink);display:flex;align-items:center;justify-content:center;font-size:13px;">🤖</div><div class="typing-dots"><span></span><span></span><span></span></div>';
   msgs.appendChild(d); scrollBot();
 }
-function hideTyping() { const t=document.getElementById('typing'); if(t) t.remove(); }
+function hideTyping() { const t = document.getElementById('typing'); if (t) t.remove(); }
 
 function esc(t) {
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>');
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>');
 }
 
 function fmt(text) {
-  text = text.replace(/```([\s\S]*?)```/g,'<pre>$1</pre>');
-  text = text.replace(/`([^`]+)`/g,'<code>$1</code>');
-  text = text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
-  text = text.replace(/\n/g,'<br/>');
+  if (!text) return '';
+  text = text.replace(/```[\s\S]*?```/g, m => '<pre>' + m.slice(3, m.lastIndexOf('```')).replace(/^[a-z]*\n/,'') + '</pre>');
+  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  text = text.replace(/\n/g, '<br/>');
   return text;
 }
 
-// ── SYSTEM PROMPT ────────────────────────────────────────────────────────────
+function safeParseJSON(str) {
+  const cleaned = String(str).trim()
+    .replace(/^```json?\s*/i, '').replace(/```\s*$/, '')
+    .replace(/^`+|`+$/g, '').trim();
+  return JSON.parse(cleaned);
+}
+
+// ═══════════════════════════════════════════════════════
+// SYSTEM PROMPT
+// ═══════════════════════════════════════════════════════
 function sysPrompt() {
-  const name  = get('userName','the user');
-  const repo1 = get('repo1','');
-  const r1n   = get('repo1name','');
-  const about = get('about','');
-  const prefs = get('prefs','');
-  const facts = get('learnedFacts',[]);
+  const name  = get('userName', 'the user');
+  const repo1 = get('repo1', '');
+  const r1n   = get('repo1name', '');
+  const about = get('about', '');
+  const prefs = get('prefs', '');
+  const facts = get('learnedFacts', []);
   const now   = new Date();
-  const dateStr = now.toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  const timeStr = now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZoneName:'short'});
+  const dateStr = now.toLocaleDateString('en-GB', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const timeStr = now.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',timeZoneName:'short'});
 
-  return `You are a personal AI agent for ${name}. You have real GitHub access, persistent memory, and help manage and deploy code using plain conversational language.
-
-TODAY: ${dateStr} at ${timeStr}
-
-ABOUT ${name.toUpperCase()}:
-${about||'Not provided yet.'}
-
-PREFERENCES:
-${prefs||'Not set yet.'}
-
-CONFIGURED GITHUB REPO:
-- ${r1n||'Main repo'}: ${repo1}
-
-THINGS YOU KNOW ABOUT THEM:
-${facts.length?facts.join('\n'):'Nothing yet — learn as you chat.'}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-YOUR REAL GITHUB CAPABILITIES:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-You have a real GitHub Personal Access Token configured on the server. It gives you ACTUAL access to GitHub. You can:
-
-1. LIST ALL REPOS — See every repository in the account
-2. READ ANY FILE — View the full content of any file in any repo
-3. LIST COMMITS — See recent commit history of any repo
-4. PUSH/UPDATE FILES — Write changes directly to any repo
-5. CREATE NEW FILES — Add new files to any repo
-
-To use these GitHub capabilities, append one of these action blocks AFTER your normal reply:
-
-LIST ALL REPOS:
-[ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]
-
-GET REPO INFO:
-[ACTION:GITHUB]{"action":"getRepo","repo":"owner/reponame"}[/ACTION:GITHUB]
-
-READ A FILE:
-[ACTION:GITHUB]{"action":"getFile","repo":"owner/reponame","path":"index.html","branch":"main"}[/ACTION:GITHUB]
-
-LIST RECENT COMMITS:
-[ACTION:GITHUB]{"action":"listCommits","repo":"owner/reponame","branch":"main","limit":10}[/ACTION:GITHUB]
-
-LIST FILES IN A FOLDER:
-[ACTION:GITHUB]{"action":"listFiles","repo":"owner/reponame","path":"","branch":"main"}[/ACTION:GITHUB]
-
-DEPLOY/PUSH FILES:
-[ACTION:DEPLOY]
-{"repo":"owner/reponame","branch":"main","commit_message":"your message","files":[{"path":"file/path","content":"full content here"}]}
-[/ACTION:DEPLOY]
-
-CRITICAL FORMAT RULE: When writing [ACTION:GITHUB] or [ACTION:DEPLOY] blocks, the JSON inside MUST be plain JSON with NO backticks, NO markdown formatting, NO code fences around it. Just raw JSON directly between the tags. Example of CORRECT format:
-[ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]
-
-Example of WRONG format (never do this):
-[ACTION:GITHUB]`{"action":"listRepos"}`[/ACTION:GITHUB]
-
-IMPORTANT — HOW GITHUB DATA WORKS:
-When Fahad asks about repos, commits, or files, the system automatically fetches the real data from GitHub BEFORE sending you this message. If you see a "LIVE GITHUB DATA" section in the message, that is real, accurate, current data — use it immediately to answer. NEVER say you are "waiting" for data, "sending a request", or that it will take a few seconds. If the data is there, answer from it directly. If no data was fetched and you need it, use an [ACTION:GITHUB] block to request it.
-
-WHEN YOU LEARN AN IMPORTANT NEW FACT ABOUT THE USER, append:
-[MEMORY]the fact[/MEMORY]
-
-PERSONALITY: Warm, direct, plain language. Trusted technical friend. Always say what you're about to do. Never delete without confirmation.`;
+  return [
+    'You are a personal AI agent for ' + name + '. You have real GitHub access, persistent memory, and help manage and deploy code in plain language.',
+    '',
+    'TODAY: ' + dateStr + ' at ' + timeStr,
+    '',
+    'ABOUT ' + name.toUpperCase() + ':',
+    about || 'Not provided yet.',
+    '',
+    'PREFERENCES:',
+    prefs || 'Not set yet.',
+    '',
+    'CONFIGURED GITHUB REPO:',
+    '- ' + (r1n || 'Main repo') + ': ' + (repo1 || 'not set'),
+    '',
+    'THINGS YOU KNOW ABOUT THEM:',
+    facts.length ? facts.join('\n') : 'Nothing yet — learn as you chat.',
+    '',
+    'YOUR GITHUB CAPABILITIES (server handles these via a real token):',
+    '1. List all repos  2. Read any file  3. List commits  4. Push/update files  5. Create files',
+    '',
+    'If you need GitHub data not already provided, use this exact format (NO backticks around the JSON):',
+    '[ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]',
+    '[ACTION:GITHUB]{"action":"getFile","repo":"owner/repo","path":"index.html","branch":"main"}[/ACTION:GITHUB]',
+    '[ACTION:GITHUB]{"action":"listCommits","repo":"owner/repo","branch":"main","limit":10}[/ACTION:GITHUB]',
+    '[ACTION:GITHUB]{"action":"listFiles","repo":"owner/repo","path":"","branch":"main"}[/ACTION:GITHUB]',
+    '',
+    'To push changes, use this exact format:',
+    '[ACTION:DEPLOY]{"repo":"owner/repo","branch":"main","commit_message":"msg","files":[{"path":"file.html","content":"full content"}]}[/ACTION:DEPLOY]',
+    '',
+    'RULES:',
+    '- If you see LIVE GITHUB DATA in the message, use it directly — do not say you are waiting or fetching.',
+    '- Never say you are waiting for data. Never hallucinate data. Only state what you actually have.',
+    '- JSON inside action tags must be raw JSON — no backticks, no markdown, no code fences.',
+    '- Never push or delete without explicit confirmation.',
+    '- When you learn an important fact about the user, append: [MEMORY]the fact[/MEMORY]',
+    '',
+    'PERSONALITY: Warm, direct, plain language. Trusted technical co-founder. Brief. Action-oriented.',
+  ].join('\n');
 }
 
-// ── AI CALL (via secure backend) ─────────────────────────────────────────────
-function friendlyAIError(status, message, provider) {
-  const msg = (message || '').toLowerCase();
-  // Quota / billing exhausted
-  if (status === 429 || msg.includes('quota') || msg.includes('rate limit') || msg.includes('resource_exhausted') || msg.includes('exhausted')) {
-    if (provider === 'gemini') {
-      return `⚠️ <strong>Gemini free quota reached.</strong><br/><br/>You've hit Google's free usage limit for today. Options:<br/>
-<strong>1.</strong> Wait until midnight Pacific time — quota resets daily for free tier.<br/>
-<strong>2.</strong> Switch to OpenAI: tap ⚙️ → change brain to <em>OpenAI GPT-4o-mini</em>.<br/>
-<strong>3.</strong> Upgrade to a paid Gemini plan at <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a>.`;
+// ═══════════════════════════════════════════════════════
+// API CALLS
+// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// RATE LIMIT STATE + COUNTDOWN TIMER (Gemini only)
+// ═══════════════════════════════════════════════════════
+var geminiResetAt    = 0;   // timestamp ms when Gemini quota resets
+var countdownInterval = null;
+var messageQueue      = [];  // holds queued messages while quota is hit
+
+function nextMidnightPacific() {
+  // Gemini free tier resets at midnight US Pacific (approx UTC-8)
+  var offset  = 8 * 60 * 60 * 1000;
+  var pacific = new Date(Date.now() - offset);
+  pacific.setHours(24, 0, 0, 0);
+  return pacific.getTime() + offset;
+}
+
+function markGeminiLimited() {
+  geminiResetAt = nextMidnightPacific();
+  set('gemini_reset_at', geminiResetAt);
+  startCountdown();
+}
+
+function isGeminiLimited() {
+  if (!geminiResetAt) geminiResetAt = get('gemini_reset_at', 0);
+  return geminiResetAt > Date.now();
+}
+
+function clearGeminiLimit() {
+  geminiResetAt = 0;
+  set('gemini_reset_at', 0);
+}
+
+function formatCountdown(ms) {
+  if (ms <= 0) return '0s';
+  var s = Math.floor(ms / 1000);
+  var h = Math.floor(s / 3600); s -= h * 3600;
+  var m = Math.floor(s / 60);   s -= m * 60;
+  if (h > 0) return h + 'h ' + m + 'm';
+  if (m > 0) return m + 'm ' + s + 's';
+  return s + 's';
+}
+
+function startCountdown() {
+  if (countdownInterval) clearInterval(countdownInterval);
+  countdownInterval = setInterval(function() {
+    if (!isGeminiLimited()) {
+      clearInterval(countdownInterval);
+      countdownInterval = null;
+      clearGeminiLimit();
+      updateStatus();
+      flushQueue();
+      return;
     }
-    return `⚠️ <strong>OpenAI rate limit hit.</strong> Wait a moment and try again, or check your credits at <a href="https://platform.openai.com/account/usage" target="_blank">platform.openai.com</a>.`;
-  }
-  // Invalid key
-  if (status === 401 || status === 403 || msg.includes('invalid') || msg.includes('api key')) {
-    return `🔑 <strong>API key issue.</strong> The ${provider} key on the server may be invalid or expired. Ask whoever manages the Vercel project to check the environment variables.`;
-  }
-  // Token limit on a single message
-  if (msg.includes('token') && (msg.includes('limit') || msg.includes('exceed'))) {
-    return `📏 <strong>Message too long.</strong> The conversation history is too large. Tap ✏️ to start a fresh chat and try again.`;
-  }
-  // Generic fallback
-  return `❌ <strong>AI error (${status}):</strong> ${message}`;
+    var remaining = geminiResetAt - Date.now();
+    document.getElementById('statusDot').className    = 'status-dot';
+    document.getElementById('statusText').textContent =
+      '⏳ Gemini quota resets in ' + formatCountdown(remaining) + ' — messages queued';
+  }, 1000);
 }
 
-async function callAI(userMsg) {
-  const provider = get('brain','gemini');
-  const history  = get('conversation',[]).slice(-20);
+// ═══════════════════════════════════════════════════════
+// MESSAGE QUEUE — auto-flushes when quota resets
+// ═══════════════════════════════════════════════════════
+function queueMessage(text) {
+  messageQueue.push(text);
+  // Save queue to localStorage so it survives a page refresh
+  set('msg_queue', messageQueue);
+  var resetIn = formatCountdown(geminiResetAt - Date.now());
+  addAI(
+    '📥 <strong>Message saved.</strong> Gemini quota is used up for today.<br/>' +
+    'Quota resets in <strong>' + resetIn + '</strong>. Your message will send automatically.<br/>' +
+    '<small style="color:var(--muted)">Queued: "' + esc(text.slice(0, 80)) + (text.length > 80 ? '…' : '') + '"</small><br/>' +
+    '<small style="color:var(--muted)">Tip: You can also upgrade Gemini at <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a>.</small>'
+  );
+}
 
-  const r = await fetch('/api/ai', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      provider,
-      systemPrompt: sysPrompt(),
-      history,
-      userMessage: userMsg,
-    }),
-  });
-
-  const data = await r.json();
-  if (!r.ok) {
-    const friendly = friendlyAIError(r.status, data.error, provider);
-    throw Object.assign(new Error(data.error || `HTTP ${r.status}`), { friendlyHTML: friendly });
+async function flushQueue() {
+  // Also restore any queue saved across page refreshes
+  var saved = get('msg_queue', []);
+  if (saved.length && !messageQueue.length) messageQueue = saved;
+  set('msg_queue', []);
+  if (!messageQueue.length) return;
+  var queued = messageQueue.splice(0);
+  addAI('✅ <strong>Gemini quota restored!</strong> Sending ' + queued.length + ' queued message' + (queued.length > 1 ? 's' : '') + '…');
+  for (var i = 0; i < queued.length; i++) {
+    await sendMessageText(queued[i]);
+    await new Promise(function(r){ setTimeout(r, 800); });
   }
+}
+
+// ═══════════════════════════════════════════════════════
+// AI CALL — Gemini only, with clear quota handling
+// ═══════════════════════════════════════════════════════
+async function callAI(userMsg) {
+  var provider = get('brain', 'gemini');
+  var history  = get('conversation', []).slice(-20);
+
+  // Already known to be rate-limited — don't even try
+  if (isGeminiLimited()) {
+    var e = new Error('quota'); e.isQuota = true; throw e;
+  }
+
+  var r = await fetch('/api/ai', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({ provider: provider, systemPrompt: sysPrompt(), history: history, userMessage: userMsg }),
+  });
+  var data = await r.json();
+
+  if (!r.ok) {
+    var msg = data.error || 'HTTP ' + r.status;
+    var low = msg.toLowerCase();
+    var err = new Error(msg);
+
+    if (r.status === 429 || low.includes('quota') || low.includes('exhausted') || low.includes('resource_exhausted')) {
+      err.isQuota = true;
+      throw err;
+    }
+    if (r.status === 401 || r.status === 403) {
+      err.friendlyHTML = '🔑 <strong>API key rejected.</strong> Check your GEMINI_API_KEY in Vercel environment variables.';
+      throw err;
+    }
+    err.friendlyHTML = '❌ <strong>Error:</strong> ' + esc(msg);
+    throw err;
+  }
+
   if (!data.response) throw new Error('Empty response from server.');
   return data.response;
 }
 
-// ── GITHUB ENGINE (via secure backend) ───────────────────────────────────────
 async function githubAPI(payload) {
   const r = await fetch('/api/github', {
-    method: 'POST',
+    method:  'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body:    JSON.stringify(payload),
   });
   const data = await r.json();
-  if (!r.ok) throw new Error(data.error || `GitHub error: HTTP ${r.status}`);
+  if (!r.ok) throw new Error(data.error || 'GitHub error: HTTP ' + r.status);
   return data;
 }
 
-async function pushFile(repo, branch, path, content, commitMessage) {
-  return await githubAPI({ action: 'pushFile', repo, branch, path, content, commitMessage });
-}
+// ═══════════════════════════════════════════════════════
+// GITHUB PREFETCH (runs before AI call for repo/commit queries)
+// ═══════════════════════════════════════════════════════
+const REPO_RE   = /repo|repositor|github|my projects?|my sites?|what.*(have|own)|how many/i;
+const COMMIT_RE = /commit|commit history|recent changes|what changed|last (push|update)/i;
 
-async function executeDeploy(action, msgEl) {
-  const { repo, branch, commit_message, files } = action;
-  const bubble = msgEl.querySelector('.bubble');
-  let log = '';
-  const appendLog = (line, cls='') => {
-    log += `<div class="${cls}">${line}</div>`;
-    bubble.querySelector('.deploy-log').innerHTML = log;
-    scrollBot();
-  };
-  bubble.innerHTML = `<strong>🚀 Deploying to GitHub...</strong><div class="deploy-progress"><div class="deploy-bar-wrap"><div class="deploy-bar" id="dBar"></div></div><div class="deploy-label" id="dLabel">Starting...</div></div><div class="deploy-log"></div>`;
-
-  for (let i=0; i<files.length; i++) {
-    const f = files[i];
-    document.getElementById('dBar').style.width = Math.round((i/files.length)*100)+'%';
-    document.getElementById('dLabel').textContent = `${i}/${files.length} — ${f.path}`;
-    appendLog(`→ ${f.path}`, 'info');
-    try {
-      await pushFile(repo, branch||'main', f.path, f.content, commit_message||`update: ${f.path}`);
-      appendLog('  ✅ pushed', 'ok');
-    } catch(e) {
-      appendLog(`  ❌ ${e.message}`, 'err');
-    }
-    await new Promise(r => setTimeout(r, 280));
-  }
-
-  document.getElementById('dBar').style.width = '100%';
-  document.getElementById('dLabel').textContent = `${files.length}/${files.length} complete`;
-  appendLog('', '');
-  appendLog('🎉 Done! Vercel will rebuild in ~60 seconds.', 'ok');
-  scrollBot();
-}
-
-// ── RESPONSE HANDLER ─────────────────────────────────────────────────────────
-async function handleResponse(raw, msgEl) {
-  // Save [MEMORY] blocks
-  for (const m of raw.matchAll(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g)) {
-    const fact = m[1].trim();
-    const facts = get('learnedFacts',[]);
-    if (!facts.includes(fact)) { facts.push(fact); set('learnedFacts', facts); }
-  }
-
-  // Handle [ACTION:GITHUB] — read operations, feed result back to AI
-  const ghMatch = raw.match(/\[ACTION:GITHUB\]([\s\S]*?)\[\/ACTION:GITHUB\]/);
-
-  // Handle [ACTION:DEPLOY] — write operations, show confirmation
-  const deployMatch = raw.match(/\[ACTION:DEPLOY\]([\s\S]*?)\[\/ACTION:DEPLOY\]/);
-
-  // Clean display text
-  const displayText = raw
-    .replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g,'')
-    .replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g,'')
-    .replace(/\[ACTION:DEPLOY\][\s\S]*?\[\/ACTION:DEPLOY\]/g,'')
-    .trim();
-
-  if (displayText) {
-    msgEl.querySelector('.bubble').innerHTML = fmt(displayText);
-  }
-  scrollBot();
-
-  // ── Process GitHub READ action ──────────────────────────────────────────────
-  if (ghMatch) {
-    let ghPayload;
-    try { ghPayload = safeParseJSON(ghMatch[1]); }
-    catch(e) { addAI(`⚠️ GitHub action had malformed JSON: ${e.message}. Please try again.`); return; }
-
-    // Show a "fetching" indicator
-    const fetchEl = addAI(`<em>🔍 Fetching from GitHub (${ghPayload.action})…</em>`);
-    let ghResult;
-    try {
-      ghResult = await githubAPI(ghPayload);
-      fetchEl.querySelector('.bubble').innerHTML = `<em>✅ Got data from GitHub — summarising…</em>`;
-    } catch(e) {
-      fetchEl.querySelector('.bubble').innerHTML = `❌ GitHub error: ${esc(e.message)}`;
-      return;
-    }
-
-    // Feed the result back into the AI so it can summarise it naturally
-    const resultStr = JSON.stringify(ghResult, null, 2);
-    const followUpMsg = `Here is the real data from GitHub for the ${ghPayload.action} request:\n\n${resultStr}\n\nPlease summarise this clearly and helpfully for me in plain language.`;
-
-    showTyping();
-    try {
-      // Add to history so AI has context
-      pushConvo('assistant', raw);
-      pushConvo('user', followUpMsg);
-      const summaryResponse = await callAI(followUpMsg);
-      hideTyping();
-      fetchEl.querySelector('.bubble').innerHTML = fmt(summaryResponse.replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g,'').replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g,'').trim());
-      pushConvo('assistant', summaryResponse);
-    } catch(e) {
-      hideTyping();
-      fetchEl.querySelector('.bubble').innerHTML = `❌ Error summarising: ${esc(e.message)}`;
-    }
-    scrollBot();
-    return; // Don't process deploy in same turn
-  }
-
-  // ── Process GitHub DEPLOY action ────────────────────────────────────────────
-  if (deployMatch) {
-    try {
-      const action = safeParseJSON(deployMatch[1]);
-      const cnt = action.files?.length||0;
-      const safeAction = JSON.stringify(action).replace(/"/g,'&quot;');
-      addAI(`<strong>Ready to deploy ${cnt} file(s) to <code>${action.repo}</code></strong><br/><br/>Shall I go ahead?<br/><button class="action-btn green" onclick="confirmDeploy(this,'${safeAction}')">✅ Yes, deploy now</button><button class="action-btn" onclick="this.closest('.msg').remove()">❌ Cancel</button>`);
-    } catch(e) {
-      addAI(`⚠️ I planned a deploy but couldn't parse it: ${e.message}. Please try again.`);
-    }
-  }
-}
-
-async function confirmDeploy(btn, actionStr) {
-  btn.parentNode.innerHTML = '<em>Deploying…</em>';
-  const action = JSON.parse(actionStr.replace(/&quot;/g,'"'));
-  const el = addAI('<strong>🚀 Starting…</strong>');
-  try { await executeDeploy(action, el); }
-  catch(e) { el.querySelector('.bubble').innerHTML = `❌ Deploy failed: ${e.message}`; }
-}
-
-// ── INTENT DETECTION — fetch real GitHub data BEFORE calling AI ───────────────
-// Broad catch: any message touching repos/github/projects triggers a prefetch
-const REPO_INTENTS   = /repo|repositor|github|my projects?|my sites?|what.*(have|do i have|own)|list.*git|how many.*repo/i;
-const COMMIT_INTENTS = /\b(commits?|commit history|recent changes|what changed|last (push|update|commit))\b/i;
-
-async function prefetchGitHubContext(text) {
+async function prefetchGitHub(text) {
   try {
-    if (REPO_INTENTS.test(text)) {
+    if (REPO_RE.test(text)) {
       const data = await githubAPI({ action: 'listRepos' });
-      if (!data.repos || !data.repos.length) return 'LIVE GITHUB DATA: No repositories found in this account.';
-      const lines = data.repos.map(r =>
-        `• ${r.name}${r.description ? ' — ' + r.description : ''}${r.language ? ' ['+r.language+']' : ''} (updated: ${r.updatedAt?.slice(0,10)||'?'}, ${r.private?'private':'public'})`
-      ).join('\n');
-      return `LIVE GITHUB DATA (fetched right now — ${new Date().toISOString()}):\nFahad has ${data.total} repositor${data.total===1?'y':'ies'} on GitHub:\n${lines}`;
+      if (!data.repos) return null;
+      if (!data.repos.length) return 'LIVE GITHUB DATA: No repositories found in this account.';
+      const lines = data.repos.map(function(r) {
+        return '• ' + r.name + (r.description ? ' — ' + r.description : '') + (r.language ? ' [' + r.language + ']' : '') + ' (updated: ' + (r.updatedAt ? r.updatedAt.slice(0,10) : '?') + ', ' + (r.private ? 'private' : 'public') + ')';
+      }).join('\n');
+      return 'LIVE GITHUB DATA (fetched ' + new Date().toISOString() + '):\n' + name + ' has ' + data.total + ' repo' + (data.total === 1 ? '' : 's') + ' on GitHub:\n' + lines;
     }
-    if (COMMIT_INTENTS.test(text)) {
-      const repo = get('repo1','');
+    if (COMMIT_RE.test(text)) {
+      const repo = get('repo1', '');
       if (!repo) return null;
-      const data = await githubAPI({ action: 'listCommits', repo, limit: 8 });
-      if (!data.commits) return null;
-      const lines = data.commits.map(c => `• [${c.sha}] ${c.date?.slice(0,10)} — ${c.message} (by ${c.author})`).join('\n');
-      return `LIVE GITHUB DATA — Recent commits for ${repo}:\n${lines}`;
+      const data = await githubAPI({ action: 'listCommits', repo: repo, limit: 8 });
+      if (!data.commits || !data.commits.length) return null;
+      const lines = data.commits.map(function(c) {
+        return '• [' + c.sha + '] ' + (c.date ? c.date.slice(0,10) : '') + ' — ' + c.message + ' (by ' + c.author + ')';
+      }).join('\n');
+      return 'LIVE GITHUB DATA — Recent commits for ' + repo + ':\n' + lines;
     }
-  } catch(e) {
-    console.warn('Prefetch failed:', e.message);
-    return `Note: GitHub data fetch failed (${e.message}). Answer from what you know.`;
+  } catch (e) {
+    console.warn('GitHub prefetch failed:', e.message);
+    return 'Note: GitHub prefetch failed (' + e.message + '). Answer from memory only.';
   }
   return null;
 }
 
-// Safe JSON parse — strips markdown backticks the AI sometimes wraps around JSON
-function safeParseJSON(str) {
-  const cleaned = str.trim().replace(/^```json?\s*/i,'').replace(/```\s*$/,'').replace(/^`+|`+$/g,'').trim();
-  return JSON.parse(cleaned);
-}
-
-// ── MAIN SEND ────────────────────────────────────────────────────────────────
-async function sendMessage() {
-  const inp  = document.getElementById('userInput');
-  const text = inp.value.trim(); if (!text) return;
-  const btn  = document.getElementById('sendBtn');
-  btn.disabled = true; inp.value = ''; inp.style.height = 'auto';
-  addUser(text); pushConvo('user', text);
-  document.getElementById('statusDot').className = 'status-dot thinking';
-  document.getElementById('statusText').textContent = 'Thinking…';
-  showTyping();
-
-  try {
-    // Pre-fetch real GitHub data if the message seems to need it
-    const githubContext = await prefetchGitHubContext(text);
-
-    // Inject the live data directly into the user message so AI has it immediately
-    const augmentedMessage = githubContext
-      ? `${text}\n\n---\n${githubContext}\n---\nPlease use the above live data to answer my question accurately.`
-      : text;
-
-    const response = await callAI(augmentedMessage);
-    hideTyping();
-    const el = addAI('');
-    await handleResponse(response, el);
-    // Store original message in history (not the augmented one)
-    pushConvo('assistant', response);
-  } catch(e) {
-    hideTyping();
-    addAI(e.friendlyHTML || `❌ <strong>Error:</strong> ${esc(e.message)}`);
+// ═══════════════════════════════════════════════════════
+// DEPLOY
+// ═══════════════════════════════════════════════════════
+async function executeDeploy(action, msgEl) {
+  const { repo, branch, commit_message, files } = action;
+  const bubble = msgEl.querySelector('.bubble');
+  let log = '';
+  function appendLog(line, cls) {
+    log += '<div class="' + (cls||'') + '">' + line + '</div>';
+    bubble.querySelector('.deploy-log').innerHTML = log;
+    scrollBot();
   }
-  btn.disabled = false; updateStatus(); inp.focus();
+  bubble.innerHTML = '<strong>🚀 Deploying to GitHub...</strong><div class="deploy-progress"><div class="deploy-bar-wrap"><div class="deploy-bar" id="dBar"></div></div><div class="deploy-label" id="dLabel">Starting...</div></div><div class="deploy-log"></div>';
+  for (var i = 0; i < files.length; i++) {
+    var f = files[i];
+    document.getElementById('dBar').style.width = Math.round((i / files.length) * 100) + '%';
+    document.getElementById('dLabel').textContent = i + '/' + files.length + ' — ' + f.path;
+    appendLog('→ ' + f.path, 'info');
+    try {
+      await githubAPI({ action: 'pushFile', repo: repo, branch: branch || 'main', path: f.path, content: f.content, commitMessage: commit_message || 'update: ' + f.path });
+      appendLog('  ✅ pushed', 'ok');
+    } catch (e) {
+      appendLog('  ❌ ' + e.message, 'err');
+    }
+    await new Promise(function(r){ setTimeout(r, 280); });
+  }
+  document.getElementById('dBar').style.width = '100%';
+  document.getElementById('dLabel').textContent = files.length + '/' + files.length + ' complete';
+  appendLog('🎉 Done! Vercel will rebuild in ~60 seconds.', 'ok');
+  scrollBot();
 }
 
-// ── INIT ─────────────────────────────────────────────────────────────────────
-window.onload = () => {
+async function confirmDeploy(btn, actionStr) {
+  btn.parentNode.innerHTML = '<em>Deploying…</em>';
+  var action = JSON.parse(actionStr.replace(/&quot;/g, '"'));
+  var el = addAI('<strong>🚀 Starting…</strong>');
+  try { await executeDeploy(action, el); }
+  catch (e) { el.querySelector('.bubble').innerHTML = '❌ Deploy failed: ' + esc(e.message); }
+}
+
+// ═══════════════════════════════════════════════════════
+// RESPONSE HANDLER
+// ═══════════════════════════════════════════════════════
+async function handleResponse(raw, msgEl) {
+  // Extract special blocks
+  var memMatches = [...raw.matchAll(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g)];
+  var ghMatch    = raw.match(/\[ACTION:GITHUB\]([\s\S]*?)\[\/ACTION:GITHUB\]/);
+  var depMatch   = raw.match(/\[ACTION:DEPLOY\]([\s\S]*?)\[\/ACTION:DEPLOY\]/);
+
+  // Save memory facts
+  memMatches.forEach(function(m) {
+    var fact = m[1].trim();
+    var facts = get('learnedFacts', []);
+    if (!facts.includes(fact)) { facts.push(fact); set('learnedFacts', facts); }
+  });
+
+  // Clean display text
+  var display = raw
+    .replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g, '')
+    .replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g, '')
+    .replace(/\[ACTION:DEPLOY\][\s\S]*?\[\/ACTION:DEPLOY\]/g, '')
+    .trim();
+
+  if (display) msgEl.querySelector('.bubble').innerHTML = fmt(display);
+  scrollBot();
+
+  // Handle GitHub read action
+  if (ghMatch) {
+    var ghPayload;
+    try { ghPayload = safeParseJSON(ghMatch[1]); }
+    catch (e) { addAI('⚠️ GitHub action JSON was malformed. Please rephrase your request.'); return; }
+
+    var fetchEl = addAI('<em>🔍 Fetching from GitHub (' + ghPayload.action + ')…</em>');
+    var ghResult;
+    try {
+      ghResult = await githubAPI(ghPayload);
+      fetchEl.querySelector('.bubble').innerHTML = '<em>✅ Got data — summarising…</em>';
+    } catch (e) {
+      fetchEl.querySelector('.bubble').innerHTML = '❌ GitHub error: ' + esc(e.message);
+      return;
+    }
+
+    var resultStr  = JSON.stringify(ghResult, null, 2);
+    var followUp   = 'Here is the real live data from GitHub for my ' + ghPayload.action + ' request:\n\n' + resultStr + '\n\nPlease summarise this clearly and helpfully for me in plain language.';
+    pushConvo('assistant', raw);
+    pushConvo('user', followUp);
+    showTyping();
+    try {
+      var summary = await callAI(followUp);
+      hideTyping();
+      var clean = summary.replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g,'').replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g,'').trim();
+      fetchEl.querySelector('.bubble').innerHTML = fmt(clean);
+      pushConvo('assistant', summary);
+    } catch (e) {
+      hideTyping();
+      fetchEl.querySelector('.bubble').innerHTML = e.friendlyHTML || ('❌ ' + esc(e.message));
+    }
+    scrollBot();
+    return;
+  }
+
+  // Handle deploy action
+  if (depMatch) {
+    var action;
+    try { action = safeParseJSON(depMatch[1]); }
+    catch (e) { addAI('⚠️ Deploy action had malformed JSON. Please try again.'); return; }
+    var cnt = (action.files && action.files.length) || 0;
+    var safe = JSON.stringify(action).replace(/"/g, '&quot;');
+    addAI('<strong>Ready to deploy ' + cnt + ' file(s) to <code>' + action.repo + '</code></strong><br/><br/>Shall I go ahead?<br/><button class="action-btn green" onclick="confirmDeploy(this,\'' + safe + '\')">✅ Yes, deploy now</button><button class="action-btn" onclick="this.closest(\'.msg\').remove()">❌ Cancel</button>');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// MAIN SEND — button always re-enabled in finally block
+// ═══════════════════════════════════════════════════════
+async function sendMessageText(text) {
+  addUser(text);
+  document.getElementById('statusDot').className    = 'status-dot thinking';
+  document.getElementById('statusText').textContent  = 'Thinking…';
+  showTyping();
+  try {
+    var ghContext = await prefetchGitHub(text);
+    var msgToSend = ghContext ? text + '\n\n---\n' + ghContext + '\n---\nUse the above live data to answer accurately.' : text;
+    pushConvo('user', text);
+    var response = await callAI(msgToSend);
+    hideTyping();
+    var el = addAI('');
+    await handleResponse(response, el);
+    pushConvo('assistant', response);
+  } catch (e) {
+    hideTyping();
+    if (e.isQuota) {
+      markGeminiLimited();
+      queueMessage(text);
+    } else {
+      addAI(e.friendlyHTML || ('❌ <strong>Error:</strong> ' + esc(e.message)));
+    }
+  }
+}
+
+async function sendMessage() {
+  var inp  = document.getElementById('userInput');
+  var text = inp.value.trim();
+  if (!text) return;
+  var btn = document.getElementById('sendBtn');
+  btn.disabled = true;
+  inp.value = ''; inp.style.height = 'auto';
+  try {
+    await sendMessageText(text);
+  } finally {
+    btn.disabled = false;
+    updateStatus();
+    inp.focus();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+window.onload = function() {
   updateStatus();
-  if (!get('setupDone')) setTimeout(openSetup, 500);
+  if (!get('setupDone')) setTimeout(openSetup, 600);
+  // Restore rate limit countdown + queue if quota was hit before page refresh
+  if (isGeminiLimited()) startCountdown();
 };
 </script>
 </body>
