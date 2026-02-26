@@ -392,12 +392,8 @@ DEPLOY/PUSH FILES:
 {"repo":"owner/reponame","branch":"main","commit_message":"your message","files":[{"path":"file/path","content":"full content here"}]}
 [/ACTION:DEPLOY]
 
-IMPORTANT RULES:
-- When asked about repos, commits, or files — USE the action blocks to fetch REAL data. Do not guess or make things up.
-- After getting GitHub data, summarise it clearly for ${name} in plain language.
-- You can chain actions: read a file first, then propose changes, then deploy.
-- Always show ${name} what you found before proposing any changes.
-- Never push or delete without explicit confirmation from ${name}.
+IMPORTANT — HOW GITHUB DATA WORKS:
+When Fahad asks about repos, commits, or files, the system automatically fetches the real data from GitHub BEFORE sending you this message. If you see a "LIVE GITHUB DATA" section in the message, that is real, accurate, current data — use it immediately to answer. NEVER say you are "waiting" for data, "sending a request", or that it will take a few seconds. If the data is there, answer from it directly. If no data was fetched and you need it, use an [ACTION:GITHUB] block to request it.
 
 WHEN YOU LEARN AN IMPORTANT NEW FACT ABOUT THE USER, append:
 [MEMORY]the fact[/MEMORY]
@@ -561,6 +557,38 @@ async function confirmDeploy(btn, actionStr) {
   catch(e) { el.querySelector('.bubble').innerHTML = `❌ Deploy failed: ${e.message}`; }
 }
 
+// ── INTENT DETECTION — fetch real GitHub data BEFORE calling AI ───────────────
+const REPO_INTENTS   = /\b(repos?|repositories|repository|projects?|github\s+acc|what.*(have|do i have)|list|show me|how many)\b/i;
+const FILE_INTENTS   = /\b(read|view|show|open|look at|content of|what.?s in)\b.*\.(html|css|js|md|json|txt|py)\b/i;
+const COMMIT_INTENTS = /\b(commits?|history|changes|what.*(changed|updated|last|recent))\b/i;
+
+async function prefetchGitHubContext(text) {
+  // Returns a string to inject into the AI prompt, or null if no prefetch needed
+  try {
+    if (REPO_INTENTS.test(text) && /repo|repositor|github|projects?/i.test(text)) {
+      const data = await githubAPI({ action: 'listRepos' });
+      if (!data.repos) return null;
+      const lines = data.repos.map(r =>
+        `• ${r.name}${r.description ? ' — ' + r.description : ''}${r.language ? ' ['+r.language+']' : ''}  (updated: ${r.updatedAt?.slice(0,10)||'?'})`
+      ).join('\n');
+      return `LIVE GITHUB DATA (fetched right now):\nYou have ${data.total} repositor${data.total===1?'y':'ies'}:\n${lines}`;
+    }
+
+    if (COMMIT_INTENTS.test(text)) {
+      const repo = get('repo1','');
+      if (!repo) return null;
+      const data = await githubAPI({ action: 'listCommits', repo, limit: 8 });
+      if (!data.commits) return null;
+      const lines = data.commits.map(c => `• [${c.sha}] ${c.date?.slice(0,10)} — ${c.message} (by ${c.author})`).join('\n');
+      return `LIVE GITHUB DATA — Recent commits for ${repo}:\n${lines}`;
+    }
+  } catch(e) {
+    // Prefetch failed silently — AI will respond without it
+    console.warn('Prefetch failed:', e.message);
+  }
+  return null;
+}
+
 // ── MAIN SEND ────────────────────────────────────────────────────────────────
 async function sendMessage() {
   const inp  = document.getElementById('userInput');
@@ -571,11 +599,21 @@ async function sendMessage() {
   document.getElementById('statusDot').className = 'status-dot thinking';
   document.getElementById('statusText').textContent = 'Thinking…';
   showTyping();
+
   try {
-    const response = await callAI(text);
+    // Pre-fetch real GitHub data if the message seems to need it
+    const githubContext = await prefetchGitHubContext(text);
+
+    // Inject the live data directly into the user message so AI has it immediately
+    const augmentedMessage = githubContext
+      ? `${text}\n\n---\n${githubContext}\n---\nPlease use the above live data to answer my question accurately.`
+      : text;
+
+    const response = await callAI(augmentedMessage);
     hideTyping();
     const el = addAI('');
     await handleResponse(response, el);
+    // Store original message in history (not the augmented one)
     pushConvo('assistant', response);
   } catch(e) {
     hideTyping();
