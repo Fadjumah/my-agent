@@ -339,7 +339,13 @@ function sysPrompt() {
   const about = get('about','');
   const prefs = get('prefs','');
   const facts = get('learnedFacts',[]);
-  return `You are a personal AI agent for ${name}. You have persistent memory, know their projects, and help them manage and deploy code to GitHub using plain conversational language.
+  const now   = new Date();
+  const dateStr = now.toLocaleDateString('en-GB',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  const timeStr = now.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',timeZoneName:'short'});
+
+  return `You are a personal AI agent for ${name}. You have real GitHub access, persistent memory, and help manage and deploy code using plain conversational language.
+
+TODAY: ${dateStr} at ${timeStr}
 
 ABOUT ${name.toUpperCase()}:
 ${about||'Not provided yet.'}
@@ -347,27 +353,56 @@ ${about||'Not provided yet.'}
 PREFERENCES:
 ${prefs||'Not set yet.'}
 
-GITHUB REPOS:
-- ${r1n||'Main site'}: ${repo1}
+CONFIGURED GITHUB REPO:
+- ${r1n||'Main repo'}: ${repo1}
 
 THINGS YOU KNOW ABOUT THEM:
 ${facts.length?facts.join('\n'):'Nothing yet — learn as you chat.'}
 
-YOUR CAPABILITIES:
-1. Answer questions and give advice about their site
-2. Explain code changes in plain language
-3. Push file changes directly to GitHub when asked
-4. Remember new important facts about the user
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+YOUR REAL GITHUB CAPABILITIES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+You have a real GitHub Personal Access Token configured on the server. It gives you ACTUAL access to GitHub. You can:
 
-WHEN ASKED TO DEPLOY/PUSH/UPDATE GitHub files, respond normally then append:
+1. LIST ALL REPOS — See every repository in the account
+2. READ ANY FILE — View the full content of any file in any repo
+3. LIST COMMITS — See recent commit history of any repo
+4. PUSH/UPDATE FILES — Write changes directly to any repo
+5. CREATE NEW FILES — Add new files to any repo
+
+To use these GitHub capabilities, append one of these action blocks AFTER your normal reply:
+
+LIST ALL REPOS:
+[ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]
+
+GET REPO INFO:
+[ACTION:GITHUB]{"action":"getRepo","repo":"owner/reponame"}[/ACTION:GITHUB]
+
+READ A FILE:
+[ACTION:GITHUB]{"action":"getFile","repo":"owner/reponame","path":"index.html","branch":"main"}[/ACTION:GITHUB]
+
+LIST RECENT COMMITS:
+[ACTION:GITHUB]{"action":"listCommits","repo":"owner/reponame","branch":"main","limit":10}[/ACTION:GITHUB]
+
+LIST FILES IN A FOLDER:
+[ACTION:GITHUB]{"action":"listFiles","repo":"owner/reponame","path":"","branch":"main"}[/ACTION:GITHUB]
+
+DEPLOY/PUSH FILES:
 [ACTION:DEPLOY]
-{"repo":"${repo1}","branch":"main","commit_message":"describe change here","files":[{"path":"file/path","content":"full content here"}]}
+{"repo":"owner/reponame","branch":"main","commit_message":"your message","files":[{"path":"file/path","content":"full content here"}]}
 [/ACTION:DEPLOY]
+
+IMPORTANT RULES:
+- When asked about repos, commits, or files — USE the action blocks to fetch REAL data. Do not guess or make things up.
+- After getting GitHub data, summarise it clearly for ${name} in plain language.
+- You can chain actions: read a file first, then propose changes, then deploy.
+- Always show ${name} what you found before proposing any changes.
+- Never push or delete without explicit confirmation from ${name}.
 
 WHEN YOU LEARN AN IMPORTANT NEW FACT ABOUT THE USER, append:
 [MEMORY]the fact[/MEMORY]
 
-PERSONALITY: Warm, direct, plain language. Speak like a trusted technical friend. Always say what you're about to do before doing it. Never delete without explicit confirmation.`;
+PERSONALITY: Warm, direct, plain language. Trusted technical friend. Always say what you're about to do. Never delete without confirmation.`;
 }
 
 // ── AI CALL (via secure backend) ─────────────────────────────────────────────
@@ -393,15 +428,19 @@ async function callAI(userMsg) {
 }
 
 // ── GITHUB ENGINE (via secure backend) ───────────────────────────────────────
-async function pushFile(repo, branch, path, content, commitMessage) {
+async function githubAPI(payload) {
   const r = await fetch('/api/github', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'pushFile', repo, branch, path, content, commitMessage }),
+    body: JSON.stringify(payload),
   });
   const data = await r.json();
   if (!r.ok) throw new Error(data.error || `GitHub error: HTTP ${r.status}`);
   return data;
+}
+
+async function pushFile(repo, branch, path, content, commitMessage) {
+  return await githubAPI({ action: 'pushFile', repo, branch, path, content, commitMessage });
 }
 
 async function executeDeploy(action, msgEl) {
@@ -444,16 +483,64 @@ async function handleResponse(raw, msgEl) {
     const facts = get('learnedFacts',[]);
     if (!facts.includes(fact)) { facts.push(fact); set('learnedFacts', facts); }
   }
-  // Extract deploy action
+
+  // Handle [ACTION:GITHUB] — read operations, feed result back to AI
+  const ghMatch = raw.match(/\[ACTION:GITHUB\]([\s\S]*?)\[\/ACTION:GITHUB\]/);
+
+  // Handle [ACTION:DEPLOY] — write operations, show confirmation
   const deployMatch = raw.match(/\[ACTION:DEPLOY\]([\s\S]*?)\[\/ACTION:DEPLOY\]/);
+
   // Clean display text
   const displayText = raw
     .replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g,'')
+    .replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g,'')
     .replace(/\[ACTION:DEPLOY\][\s\S]*?\[\/ACTION:DEPLOY\]/g,'')
     .trim();
-  msgEl.querySelector('.bubble').innerHTML = fmt(displayText);
+
+  if (displayText) {
+    msgEl.querySelector('.bubble').innerHTML = fmt(displayText);
+  }
   scrollBot();
-  // Show deploy confirmation
+
+  // ── Process GitHub READ action ──────────────────────────────────────────────
+  if (ghMatch) {
+    let ghPayload;
+    try { ghPayload = JSON.parse(ghMatch[1].trim()); }
+    catch(e) { addAI(`⚠️ Couldn't parse GitHub action: ${e.message}`); return; }
+
+    // Show a "fetching" indicator
+    const fetchEl = addAI(`<em>🔍 Fetching from GitHub (${ghPayload.action})…</em>`);
+    let ghResult;
+    try {
+      ghResult = await githubAPI(ghPayload);
+      fetchEl.querySelector('.bubble').innerHTML = `<em>✅ Got data from GitHub — summarising…</em>`;
+    } catch(e) {
+      fetchEl.querySelector('.bubble').innerHTML = `❌ GitHub error: ${esc(e.message)}`;
+      return;
+    }
+
+    // Feed the result back into the AI so it can summarise it naturally
+    const resultStr = JSON.stringify(ghResult, null, 2);
+    const followUpMsg = `Here is the real data from GitHub for the ${ghPayload.action} request:\n\n${resultStr}\n\nPlease summarise this clearly and helpfully for me in plain language.`;
+
+    showTyping();
+    try {
+      // Add to history so AI has context
+      pushConvo('assistant', raw);
+      pushConvo('user', followUpMsg);
+      const summaryResponse = await callAI(followUpMsg);
+      hideTyping();
+      fetchEl.querySelector('.bubble').innerHTML = fmt(summaryResponse.replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g,'').replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g,'').trim());
+      pushConvo('assistant', summaryResponse);
+    } catch(e) {
+      hideTyping();
+      fetchEl.querySelector('.bubble').innerHTML = `❌ Error summarising: ${esc(e.message)}`;
+    }
+    scrollBot();
+    return; // Don't process deploy in same turn
+  }
+
+  // ── Process GitHub DEPLOY action ────────────────────────────────────────────
   if (deployMatch) {
     try {
       const action = JSON.parse(deployMatch[1].trim());
