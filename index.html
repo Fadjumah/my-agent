@@ -495,7 +495,10 @@ async function callAI(userMsg) {
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify({ provider: provider, systemPrompt: sysPrompt(), history: history, userMessage: userMsg }),
   });
-  var data = await r.json();
+  var text = await r.text();
+  var data;
+  try { data = text ? JSON.parse(text) : {}; }
+  catch(e) { var pe = new Error('Server returned invalid response: ' + text.slice(0,120)); throw pe; }
 
   if (!r.ok) {
     var msg = data.error || 'HTTP ' + r.status;
@@ -519,13 +522,16 @@ async function callAI(userMsg) {
 }
 
 async function githubAPI(payload) {
-  const r = await fetch('/api/github', {
+  const r    = await fetch('/api/github', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json' },
     body:    JSON.stringify(payload),
   });
-  const data = await r.json();
-  if (!r.ok) throw new Error(data.error || 'GitHub error: HTTP ' + r.status);
+  const text = await r.text();
+  let data;
+  try { data = text ? JSON.parse(text) : {}; }
+  catch(e) { throw new Error('GitHub API returned invalid response: ' + text.slice(0, 120)); }
+  if (!r.ok) throw new Error(data.error || 'GitHub HTTP ' + r.status);
   return data;
 }
 
