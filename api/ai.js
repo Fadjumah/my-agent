@@ -63,7 +63,9 @@ export default async function handler(req, res) {
       const data = await r.json();
       if (!r.ok) {
         const msg = data.error?.message || `HTTP ${r.status}`;
-        if (r.status === 429) return res.status(429).json({ error: 'Gemini rate limit hit. Wait 30 seconds and try again.' });
+        const status = data.error?.status || '';
+        if (r.status === 429 || status === 'RESOURCE_EXHAUSTED' || msg.toLowerCase().includes('quota'))
+          return res.status(429).json({ error: 'Gemini quota exhausted. Free tier limit reached — try again tomorrow or switch to OpenAI.' });
         return res.status(r.status).json({ error: 'Gemini error: ' + msg });
       }
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
