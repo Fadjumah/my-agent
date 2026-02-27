@@ -3,256 +3,779 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-<title>My AI Agent</title>
+<title>Fahad's Agent</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist+Mono:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
+/* ── TOKENS ── */
 :root {
-  --ink: #0d0d0f;
-  --paper: #f5f2eb;
-  --paper2: #ede9df;
-  --paper3: #e4dfd3;
-  --accent: #c8410a;
-  --accent2: #1a6b3a;
-  --accent3: #1a3a6b;
-  --muted: #8a8578;
-  --border: #d4cfc4;
-  --bubble-user: #0d0d0f;
-  --shadow: 0 2px 12px rgba(0,0,0,0.08);
+  --bg:        #0a0a0b;
+  --bg2:       #111113;
+  --bg3:       #18181c;
+  --bg4:       #202026;
+  --border:    #2a2a32;
+  --border2:   #353540;
+  --text:      #e8e8f0;
+  --text2:     #9090a8;
+  --text3:     #5a5a70;
+  --accent:    #7c6af7;
+  --accent2:   #5c4ee0;
+  --green:     #22c55e;
+  --red:       #ef4444;
+  --amber:     #f59e0b;
+  --code-bg:   #0d0d10;
+  --sidebar-w: 260px;
+  --radius:    12px;
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;background:var(--paper);color:var(--ink);font-family:'Geist Mono',monospace;overflow:hidden;}
-.shell{display:flex;flex-direction:column;height:100dvh;max-width:680px;margin:0 auto;background:var(--paper);position:relative;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;overflow:hidden;font-size:13px;}
 
-/* TOPBAR */
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;border-bottom:1px solid var(--border);background:var(--paper);flex-shrink:0;position:relative;z-index:10;}
-.agent-id{display:flex;align-items:center;gap:10px;}
-.avatar{width:36px;height:36px;background:var(--ink);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
-.agent-name{font-family:'Instrument Serif',serif;font-size:17px;color:var(--ink);line-height:1.1;}
-.agent-sub{font-size:10px;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;}
-.topbar-actions{display:flex;gap:8px;align-items:center;}
-.icon-btn{width:34px;height:34px;background:var(--paper2);border:1px solid var(--border);border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:14px;transition:background 0.15s;}
-.icon-btn:hover{background:var(--paper3);}
+/* ── LAYOUT ── */
+.app{display:flex;height:100dvh;position:relative;}
 
-/* SETUP */
-.setup-overlay{position:absolute;inset:0;background:var(--paper);z-index:100;overflow-y:auto;padding:24px 18px 40px;display:none;}
-.setup-overlay.open{display:block;}
-.setup-title{font-family:'Instrument Serif',serif;font-size:26px;margin-bottom:6px;line-height:1.2;}
-.setup-sub{font-size:11px;color:var(--muted);margin-bottom:28px;line-height:1.6;}
-.setup-section{margin-bottom:22px;}
-.setup-label{font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);margin-bottom:6px;display:block;}
-.setup-input{width:100%;background:white;border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-family:'Geist Mono',monospace;font-size:13px;color:var(--ink);outline:none;transition:border-color 0.2s;-webkit-appearance:none;}
-.setup-input:focus{border-color:var(--ink);}
-.setup-input::placeholder{color:var(--muted);}
-textarea.setup-input{min-height:90px;resize:vertical;line-height:1.5;}
-.repo-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
-.save-btn{width:100%;background:var(--ink);color:var(--paper);border:none;border-radius:10px;padding:15px;font-family:'Instrument Serif',serif;font-size:17px;cursor:pointer;transition:opacity 0.2s;margin-top:8px;}
-.save-btn:hover{opacity:0.85;}
-.memory-display{background:white;border:1px solid var(--border);border-radius:10px;padding:14px;font-size:12px;color:var(--muted);line-height:1.7;min-height:60px;white-space:pre-wrap;word-break:break-word;}
-.clear-btn{background:transparent;border:1px solid #e0a0a0;color:#c04040;border-radius:8px;padding:8px 16px;font-family:'Geist Mono',monospace;font-size:11px;cursor:pointer;margin-top:8px;transition:background 0.15s;}
-.clear-btn:hover{background:#fff0f0;}
-.secure-badge{display:inline-flex;align-items:center;gap:5px;background:#f0f9f4;border:1px solid #a8dfc0;border-radius:8px;padding:8px 12px;font-size:11px;color:var(--accent2);margin-bottom:20px;}
+/* ── SIDEBAR ── */
+.sidebar{
+  width:var(--sidebar-w);flex-shrink:0;
+  background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;height:100%;
+  transition:transform 0.25s ease;z-index:50;
+}
+.sidebar-top{padding:16px 12px 12px;border-bottom:1px solid var(--border);}
+.new-chat-btn{
+  width:100%;background:var(--bg4);border:1px solid var(--border2);
+  border-radius:var(--radius);padding:10px 14px;
+  color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;
+  cursor:pointer;display:flex;align-items:center;gap:8px;
+  transition:background 0.15s,border-color 0.15s;
+}
+.new-chat-btn:hover{background:var(--bg3);border-color:var(--accent);}
+.new-chat-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;}
 
-/* MESSAGES */
-.messages{flex:1;overflow-y:auto;padding:20px 18px 10px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth;}
-.messages::-webkit-scrollbar{width:3px;}
+.sidebar-section{padding:16px 12px 8px;font-size:10px;color:var(--text3);letter-spacing:0.12em;text-transform:uppercase;}
+.chat-list{flex:1;overflow-y:auto;padding:0 8px;}
+.chat-list::-webkit-scrollbar{width:3px;}
+.chat-list::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px;}
+
+.chat-item{
+  padding:9px 10px;border-radius:9px;cursor:pointer;
+  display:flex;align-items:center;gap:8px;
+  color:var(--text2);font-size:12px;line-height:1.4;
+  transition:background 0.12s,color 0.12s;
+  position:relative;group:true;
+}
+.chat-item:hover{background:var(--bg3);color:var(--text);}
+.chat-item.active{background:var(--bg4);color:var(--text);border:1px solid var(--border2);}
+.chat-item-icon{font-size:13px;flex-shrink:0;}
+.chat-item-title{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.chat-item-del{
+  opacity:0;font-size:11px;color:var(--text3);background:none;border:none;
+  cursor:pointer;padding:2px 4px;border-radius:4px;transition:opacity 0.15s,color 0.15s;
+}
+.chat-item:hover .chat-item-del{opacity:1;}
+.chat-item-del:hover{color:var(--red);}
+
+.sidebar-bottom{padding:12px;border-top:1px solid var(--border);}
+.mode-toggle{
+  display:flex;background:var(--bg);border:1px solid var(--border);
+  border-radius:var(--radius);padding:3px;gap:3px;margin-bottom:10px;
+}
+.mode-btn{
+  flex:1;padding:7px 8px;border:none;border-radius:9px;
+  font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;
+  color:var(--text2);background:transparent;transition:all 0.2s;text-align:center;
+}
+.mode-btn.active{background:var(--accent);color:white;font-weight:500;}
+.mode-btn:not(.active):hover{background:var(--bg3);color:var(--text);}
+
+.settings-btn{
+  width:100%;background:transparent;border:1px solid var(--border);
+  border-radius:var(--radius);padding:9px 12px;
+  color:var(--text2);font-family:'JetBrains Mono',monospace;font-size:12px;
+  cursor:pointer;display:flex;align-items:center;gap:8px;transition:all 0.15s;
+}
+.settings-btn:hover{border-color:var(--border2);color:var(--text);background:var(--bg3);}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative;}
+
+/* ── TOPBAR ── */
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:14px 20px;border-bottom:1px solid var(--border);
+  background:var(--bg);flex-shrink:0;backdrop-filter:blur(12px);
+}
+.topbar-left{display:flex;align-items:center;gap:10px;}
+.sidebar-toggle{
+  background:none;border:1px solid var(--border);border-radius:8px;
+  width:32px;height:32px;color:var(--text2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+  transition:all 0.15s;
+}
+.sidebar-toggle:hover{border-color:var(--border2);color:var(--text);background:var(--bg3);}
+.agent-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:600;color:var(--text);}
+.agent-subtitle{font-size:10px;color:var(--text3);letter-spacing:0.05em;}
+
+.mode-badge{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:4px 10px;border-radius:100px;font-size:10px;font-weight:500;
+  letter-spacing:0.08em;text-transform:uppercase;
+}
+.mode-badge.strategic{background:rgba(124,106,247,0.15);color:var(--accent);border:1px solid rgba(124,106,247,0.3);}
+.mode-badge.code{background:rgba(34,197,94,0.1);color:var(--green);border:1px solid rgba(34,197,94,0.25);}
+.mode-badge .dot{width:5px;height:5px;border-radius:50%;background:currentColor;animation:pulse 2s infinite;}
+
+/* ── MESSAGES ── */
+.messages{
+  flex:1;overflow-y:auto;padding:24px 0;
+  display:flex;flex-direction:column;
+}
+.messages::-webkit-scrollbar{width:4px;}
 .messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
-.welcome{text-align:center;padding:30px 10px 10px;}
-.welcome-icon{font-size:44px;margin-bottom:14px;}
-.welcome h2{font-family:'Instrument Serif',serif;font-size:22px;margin-bottom:8px;color:var(--ink);}
-.welcome p{font-size:12px;color:var(--muted);line-height:1.7;max-width:320px;margin:0 auto 20px;}
-.suggestions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:4px;}
-.suggestion{background:white;border:1px solid var(--border);border-radius:20px;padding:8px 14px;font-size:12px;color:var(--ink);cursor:pointer;transition:all 0.15s;font-family:'Geist Mono',monospace;}
-.suggestion:hover{background:var(--ink);color:var(--paper);border-color:var(--ink);}
-.msg{display:flex;gap:10px;align-items:flex-end;animation:msgIn 0.25s ease-out;}
-@keyframes msgIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
-.msg.user{flex-direction:row-reverse;}
-.msg-avatar{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-bottom:2px;}
-.msg.ai .msg-avatar{background:var(--ink);}
-.msg.user .msg-avatar{background:var(--accent);}
-.bubble{max-width:82%;padding:12px 15px;border-radius:16px;font-size:13.5px;line-height:1.65;word-break:break-word;}
-.msg.ai .bubble{background:white;border:1px solid var(--border);border-bottom-left-radius:4px;color:var(--ink);box-shadow:var(--shadow);}
-.msg.user .bubble{background:var(--bubble-user);color:#f5f2eb;border-bottom-right-radius:4px;}
-.bubble pre{background:var(--paper2);border:1px solid var(--border);border-radius:6px;padding:10px;font-size:11px;overflow-x:auto;margin:8px 0;white-space:pre-wrap;word-break:break-word;}
-.bubble code{background:var(--paper2);padding:1px 5px;border-radius:4px;font-size:12px;}
-.bubble strong{font-weight:600;}
-.bubble a{color:var(--accent3);}
-.bubble .action-btn{display:inline-block;background:var(--accent);color:white;border:none;border-radius:8px;padding:8px 16px;font-family:'Geist Mono',monospace;font-size:12px;cursor:pointer;margin-top:10px;margin-right:8px;transition:opacity 0.15s;}
-.bubble .action-btn:hover{opacity:0.85;}
-.bubble .action-btn.green{background:var(--accent2);}
-.bubble .action-btn.blue{background:var(--accent3);}
-.typing{display:flex;gap:10px;align-items:flex-end;}
-.typing-dots{background:white;border:1px solid var(--border);border-radius:16px;border-bottom-left-radius:4px;padding:14px 18px;display:flex;gap:5px;align-items:center;}
-.typing-dots span{width:6px;height:6px;background:var(--muted);border-radius:50%;animation:dot 1.2s infinite;}
+
+.msg-wrap{padding:6px 20px;display:flex;gap:12px;max-width:800px;margin:0 auto;width:100%;}
+.msg-wrap.user{flex-direction:row-reverse;}
+
+.msg-avatar{
+  width:30px;height:30px;border-radius:9px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:14px;
+  margin-top:2px;
+}
+.msg-wrap.ai .msg-avatar{background:var(--accent2);}
+.msg-wrap.user .msg-avatar{background:var(--bg4);border:1px solid var(--border2);}
+
+.bubble{
+  max-width:78%;padding:13px 16px;border-radius:14px;
+  font-size:13px;line-height:1.7;word-break:break-word;
+}
+.msg-wrap.ai .bubble{
+  background:var(--bg2);border:1px solid var(--border);
+  border-top-left-radius:3px;color:var(--text);
+}
+.msg-wrap.user .bubble{
+  background:var(--bg4);border:1px solid var(--border2);
+  border-top-right-radius:3px;color:var(--text);
+}
+.bubble strong{color:var(--text);font-weight:600;}
+.bubble em{color:var(--text2);}
+.bubble a{color:var(--accent);text-decoration:none;}
+.bubble a:hover{text-decoration:underline;}
+.bubble code{
+  background:var(--code-bg);border:1px solid var(--border);
+  padding:1px 6px;border-radius:5px;font-size:12px;color:#a78bfa;
+}
+.bubble pre{
+  background:var(--code-bg);border:1px solid var(--border);
+  border-radius:9px;padding:14px;font-size:11.5px;
+  overflow-x:auto;margin:10px 0;line-height:1.6;color:#c4b5fd;
+  white-space:pre-wrap;word-break:break-word;
+}
+.bubble hr{border:none;border-top:1px solid var(--border);margin:10px 0;}
+
+/* Code mode entry banner */
+.code-mode-banner{
+  background:linear-gradient(135deg,rgba(34,197,94,0.08),rgba(34,197,94,0.03));
+  border:1px solid rgba(34,197,94,0.2);border-radius:10px;
+  padding:10px 14px;margin-bottom:8px;font-size:11px;color:var(--green);
+  display:flex;align-items:center;gap:8px;
+}
+
+/* Action buttons */
+.action-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--accent);color:white;border:none;border-radius:8px;
+  padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;
+  cursor:pointer;margin-top:10px;margin-right:8px;transition:opacity 0.15s;
+}
+.action-btn:hover{opacity:0.85;}
+.action-btn.green{background:#16a34a;}
+.action-btn.red{background:#dc2626;}
+
+/* Typing */
+.typing-wrap{padding:6px 20px;display:flex;gap:12px;max-width:800px;margin:0 auto;width:100%;}
+.typing-dots{
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:14px;border-top-left-radius:3px;
+  padding:14px 18px;display:flex;gap:5px;align-items:center;
+}
+.typing-dots span{
+  width:5px;height:5px;background:var(--text3);border-radius:50%;
+  animation:dot 1.2s infinite;
+}
 .typing-dots span:nth-child(2){animation-delay:0.2s;}
 .typing-dots span:nth-child(3){animation-delay:0.4s;}
-@keyframes dot{0%,60%,100%{transform:translateY(0);opacity:0.4;}30%{transform:translateY(-5px);opacity:1;}}
-.deploy-progress{margin-top:10px;}
-.deploy-bar-wrap{background:var(--paper2);border-radius:100px;height:5px;overflow:hidden;margin-bottom:5px;}
-.deploy-bar{height:100%;background:linear-gradient(90deg,var(--accent2),#38c96a);border-radius:100px;transition:width 0.4s ease;width:0%;}
-.deploy-label{font-size:11px;color:var(--muted);}
-.deploy-log{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.8;max-height:160px;overflow-y:auto;}
-.deploy-log .ok{color:var(--accent2);}
-.deploy-log .err{color:#c04040;}
-.deploy-log .info{color:var(--accent3);}
+@keyframes dot{0%,60%,100%{transform:translateY(0);opacity:0.4;}30%{transform:translateY(-4px);opacity:1;}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
 
-/* INPUT */
-.input-area{padding:12px 14px 16px;padding-bottom:max(16px,env(safe-area-inset-bottom));border-top:1px solid var(--border);background:var(--paper);flex-shrink:0;}
-.input-row{display:flex;gap:8px;align-items:flex-end;background:white;border:1.5px solid var(--border);border-radius:14px;padding:8px 8px 8px 14px;transition:border-color 0.2s;}
-.input-row:focus-within{border-color:var(--ink);}
-#userInput{flex:1;border:none;background:transparent;font-family:'Geist Mono',monospace;font-size:14px;color:var(--ink);outline:none;resize:none;max-height:120px;line-height:1.5;padding:4px 0;}
-#userInput::placeholder{color:var(--muted);}
-.send-btn{width:36px;height:36px;background:var(--ink);border:none;border-radius:9px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:opacity 0.15s,transform 0.1s;color:white;}
-.send-btn:hover{opacity:0.8;}
-.send-btn:active{transform:scale(0.94);}
-.send-btn:disabled{opacity:0.3;cursor:not-allowed;transform:none;}
-.send-btn svg{width:16px;height:16px;fill:currentColor;}
-.status-pill{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--muted);padding:3px 8px;border-radius:100px;background:var(--paper2);border:1px solid var(--border);margin-bottom:8px;}
-.status-dot{width:5px;height:5px;border-radius:50%;background:#aaa;}
-.status-dot.ready{background:var(--accent2);animation:pulse 2s infinite;}
-.status-dot.thinking{background:var(--accent);animation:pulse 0.8s infinite;}
-@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
+/* Deploy progress */
+.deploy-bar-wrap{background:var(--bg);border-radius:100px;height:4px;overflow:hidden;margin:8px 0 4px;}
+.deploy-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--green));border-radius:100px;transition:width 0.4s;width:0%;}
+.deploy-label{font-size:10px;color:var(--text3);}
+.deploy-log{font-size:11px;margin-top:8px;line-height:1.9;max-height:160px;overflow-y:auto;}
+.deploy-log .ok{color:var(--green);}
+.deploy-log .err{color:var(--red);}
+.deploy-log .info{color:var(--accent);}
+
+/* Welcome */
+.welcome{
+  flex:1;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  padding:40px 20px;text-align:center;max-width:600px;margin:0 auto;width:100%;
+}
+.welcome-logo{
+  width:56px;height:56px;background:var(--accent2);border-radius:16px;
+  display:flex;align-items:center;justify-content:center;font-size:26px;
+  margin-bottom:20px;box-shadow:0 0 40px rgba(124,106,247,0.3);
+}
+.welcome h1{font-family:'Syne',sans-serif;font-size:22px;font-weight:700;margin-bottom:8px;color:var(--text);}
+.welcome p{font-size:12px;color:var(--text2);line-height:1.8;margin-bottom:28px;max-width:400px;}
+.suggestions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+.suggestion{
+  background:var(--bg2);border:1px solid var(--border);border-radius:20px;
+  padding:8px 16px;font-size:11.5px;color:var(--text2);cursor:pointer;
+  font-family:'JetBrains Mono',monospace;transition:all 0.15s;
+}
+.suggestion:hover{border-color:var(--accent);color:var(--accent);background:rgba(124,106,247,0.05);}
+
+/* ── INPUT AREA ── */
+.input-area{
+  padding:14px 20px;padding-bottom:max(14px,env(safe-area-inset-bottom));
+  border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;
+}
+.input-box{
+  max-width:800px;margin:0 auto;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:14px;
+  display:flex;align-items:flex-end;gap:8px;padding:8px 8px 8px 16px;
+  transition:border-color 0.2s;
+}
+.input-box:focus-within{border-color:var(--accent);}
+#userInput{
+  flex:1;background:transparent;border:none;color:var(--text);
+  font-family:'JetBrains Mono',monospace;font-size:13px;
+  outline:none;resize:none;max-height:140px;line-height:1.6;padding:4px 0;
+}
+#userInput::placeholder{color:var(--text3);}
+.send-btn{
+  width:34px;height:34px;background:var(--accent);border:none;
+  border-radius:9px;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;transition:opacity 0.15s,transform 0.1s;color:white;
+}
+.send-btn:hover{opacity:0.85;}
+.send-btn:active{transform:scale(0.93);}
+.send-btn:disabled{opacity:0.25;cursor:not-allowed;transform:none;}
+.send-btn svg{width:15px;height:15px;fill:currentColor;}
+
+.status-bar{
+  max-width:800px;margin:0 auto 8px;
+  display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3);
+}
+.status-dot{width:5px;height:5px;border-radius:50%;background:var(--text3);}
+.status-dot.ready{background:var(--green);animation:pulse 2.5s infinite;}
+.status-dot.thinking{background:var(--amber);animation:pulse 0.7s infinite;}
+
+/* ── SETTINGS OVERLAY ── */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;
+  display:none;align-items:center;justify-content:center;
+  backdrop-filter:blur(4px);
+}
+.overlay.open{display:flex;}
+.settings-panel{
+  background:var(--bg2);border:1px solid var(--border);border-radius:18px;
+  width:min(520px,92vw);max-height:88vh;overflow-y:auto;padding:28px;
+}
+.settings-panel::-webkit-scrollbar{width:3px;}
+.settings-panel::-webkit-scrollbar-thumb{background:var(--border2);}
+.settings-title{font-family:'Syne',sans-serif;font-size:20px;font-weight:700;margin-bottom:4px;}
+.settings-sub{font-size:11px;color:var(--text3);margin-bottom:24px;line-height:1.6;}
+.field-label{font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:6px;display:block;}
+.field-input{
+  width:100%;background:var(--bg3);border:1px solid var(--border);
+  border-radius:9px;padding:11px 14px;font-family:'JetBrains Mono',monospace;
+  font-size:12px;color:var(--text);outline:none;transition:border-color 0.2s;
+  -webkit-appearance:none;
+}
+.field-input:focus{border-color:var(--accent);}
+.field-input::placeholder{color:var(--text3);}
+textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
+.settings-section{margin-bottom:20px;}
+.repo-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.secure-note{
+  display:flex;align-items:center;gap:8px;
+  background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);
+  border-radius:9px;padding:10px 14px;font-size:11px;color:var(--green);margin-bottom:20px;
+}
+.memory-box{
+  background:var(--bg3);border:1px solid var(--border);border-radius:9px;
+  padding:12px 14px;font-size:11px;color:var(--text2);line-height:1.8;
+  min-height:60px;white-space:pre-wrap;word-break:break-word;
+}
+.btn-row{display:flex;gap:10px;margin-top:4px;}
+.clear-btn{
+  background:transparent;border:1px solid var(--border2);color:var(--text3);
+  border-radius:8px;padding:7px 14px;font-family:'JetBrains Mono',monospace;
+  font-size:11px;cursor:pointer;transition:all 0.15s;
+}
+.clear-btn:hover{border-color:var(--red);color:var(--red);}
+.save-btn{
+  flex:1;background:var(--accent);color:white;border:none;border-radius:9px;
+  padding:13px;font-family:'Syne',sans-serif;font-size:15px;font-weight:600;
+  cursor:pointer;transition:opacity 0.2s;margin-top:16px;
+}
+.save-btn:hover{opacity:0.88;}
+
+/* Mobile sidebar overlay */
+.sidebar-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:40;}
+@media(max-width:700px){
+  .sidebar{position:fixed;top:0;left:0;bottom:0;transform:translateX(-100%);z-index:50;}
+  .sidebar.open{transform:translateX(0);}
+  .sidebar-backdrop.show{display:block;}
+}
+
+/* Animations */
+@keyframes msgIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+.msg-wrap{animation:msgIn 0.2s ease-out;}
+
+/* ── LOGIN SCREEN ── */
+.login-screen {
+  position: fixed; inset: 0; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1000; padding: 20px;
+}
+.login-screen.hidden { display: none; }
+
+.login-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 20px; padding: 40px 36px; width: min(420px, 100%);
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  animation: loginIn 0.35s cubic-bezier(0.16,1,0.3,1);
+}
+@keyframes loginIn {
+  from { opacity: 0; transform: translateY(20px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.login-logo {
+  width: 52px; height: 52px; background: var(--accent2);
+  border-radius: 15px; display: flex; align-items: center;
+  justify-content: center; font-size: 24px; margin-bottom: 24px;
+  box-shadow: 0 0 32px rgba(124,106,247,0.35);
+}
+.login-title { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+.login-sub   { font-size: 12px; color: var(--text3); margin-bottom: 28px; line-height: 1.6; }
+
+.login-field { margin-bottom: 16px; }
+.login-field label { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 6px; }
+.login-input {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 13px 14px;
+  font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text);
+  outline: none; transition: border-color 0.2s; -webkit-appearance: none;
+}
+.login-input:focus { border-color: var(--accent); }
+.login-input::placeholder { color: var(--text3); }
+
+.login-btn {
+  width: 100%; background: var(--accent); color: white; border: none;
+  border-radius: 10px; padding: 14px; margin-top: 8px;
+  font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 600;
+  cursor: pointer; transition: opacity 0.2s, transform 0.1s;
+}
+.login-btn:hover   { opacity: 0.88; }
+.login-btn:active  { transform: scale(0.98); }
+.login-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.login-error {
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3);
+  border-radius: 9px; padding: 10px 14px; font-size: 12px; color: #fca5a5;
+  margin-bottom: 16px; display: none;
+}
+.login-error.show { display: block; }
+
+.login-footer { text-align: center; margin-top: 20px; font-size: 10px; color: var(--text3); }
+.login-footer a { color: var(--text3); text-decoration: none; }
+
 </style>
 </head>
 <body>
-<div class="shell">
+<div class="app">
 
-  <!-- SETUP -->
-  <div class="setup-overlay" id="setupOverlay">
-    <div class="setup-title">Setup Your Agent</div>
-    <div class="secure-badge">🔒 API keys live only on the server — never in your browser</div>
-    <p class="setup-sub">Your name, repo, and preferences are saved locally. API keys (Gemini, OpenAI, GitHub) stay securely on Vercel's servers.</p>
-    <div class="setup-section">
-      <label class="setup-label">Your Name</label>
-      <input class="setup-input" id="s_name" placeholder="e.g. Fahad"/>
-    </div>
-    <div class="setup-section">
-      <label class="setup-label">Active AI Brain</label>
-      <select class="setup-input" id="s_brain">
-        <option value="gemini">Google Gemini (Free — AI Studio)</option>
-        <option value="openai">OpenAI GPT-4o-mini (Paid)</option>
-      </select>
-      <p style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5;">Both keys are on the server. Switch anytime. If Gemini hits its daily limit, switch to OpenAI.</p>
-    </div>
-    <div class="setup-section">
-      <label class="setup-label">Your GitHub Repo</label>
-      <div class="repo-row">
-        <input class="setup-input" id="s_repo1" placeholder="owner/repo"/>
-        <input class="setup-input" id="s_repo1_name" placeholder="Nickname e.g. ENT Site"/>
-      </div>
-    </div>
-    <div class="setup-section">
-      <label class="setup-label">About You & Your Projects</label>
-      <textarea class="setup-input" id="s_about" placeholder="Tell the agent about yourself, your clinic, your goals..."></textarea>
-    </div>
-    <div class="setup-section">
-      <label class="setup-label">Your Preferences</label>
-      <textarea class="setup-input" id="s_prefs" placeholder="e.g. Always explain before doing. Be direct. No jargon..."></textarea>
-    </div>
-    <div class="setup-section">
-      <label class="setup-label">What I Remember About You</label>
-      <div class="memory-display" id="memoryDisplay">Nothing saved yet.</div>
-      <button class="clear-btn" onclick="clearMemory()">🗑 Clear All Memory</button>
-    </div>
-    <button class="save-btn" onclick="saveSetup()">Save & Start Chatting →</button>
-  </div>
-
-  <!-- TOPBAR -->
-  <div class="topbar">
-    <div class="agent-id">
-      <div class="avatar">🤖</div>
-      <div>
-        <div class="agent-name" id="agentName">My AI Agent</div>
-        <div class="agent-sub" id="agentSub">Personal Assistant</div>
-      </div>
-    </div>
-    <div class="topbar-actions">
-      <div class="icon-btn" onclick="openSetup()" title="Settings">⚙️</div>
-      <div class="icon-btn" onclick="clearChat()" title="New chat">✏️</div>
-    </div>
-  </div>
-
-  <!-- MESSAGES -->
-  <div class="messages" id="messages">
-    <div class="welcome" id="welcomeMsg">
-      <div class="welcome-icon">🤖</div>
-      <h2>Hey, I'm your AI Agent</h2>
-      <p>I know your sites, remember your preferences, and can push changes directly to GitHub. Just talk to me in plain language.</p>
-      <div class="suggestions">
-        <div class="suggestion" onclick="quickSend('List all my GitHub repositories')">List my GitHub repos</div>
-        <div class="suggestion" onclick="quickSend('What do you remember about me?')">What do you know about me?</div>
-        <div class="suggestion" onclick="quickSend('What is today\'s date and time?')">Date & time</div>
-        <div class="suggestion" onclick="quickSend('How do I add a new blog post to my site?')">How to add blog post</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- STATUS -->
-  <div style="padding:0 14px 4px;display:flex;align-items:center;">
-    <div class="status-pill">
-      <div class="status-dot ready" id="statusDot"></div>
-      <span id="statusText">Ready</span>
-    </div>
-  </div>
-
-  <!-- INPUT -->
-  <div class="input-area">
-    <div class="input-row">
-      <textarea id="userInput" rows="1" placeholder="Ask me anything or give me a task..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-      <button class="send-btn" id="sendBtn" onclick="sendMessage()">
-        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <button class="new-chat-btn" onclick="newChat()">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New chat
       </button>
+    </div>
+
+    <div class="sidebar-section">Recent</div>
+    <div class="chat-list" id="chatList"></div>
+
+    <div class="sidebar-bottom">
+      <div class="mode-toggle" id="modeToggle">
+        <button class="mode-btn active" id="btnStrategic" onclick="setMode('strategic')">⚡ Strategic</button>
+        <button class="mode-btn" id="btnCode" onclick="setMode('code')">{'</>'}  Code</button>
+      </div>
+      <button class="settings-btn" onclick="openSettings()">
+        <span>⚙️</span> Settings
+      </button>
+    </div>
+  </div>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+        <div>
+          <div class="agent-title" id="agentTitle">Fahad's Agent</div>
+          <div class="agent-subtitle" id="agentSubtitle">Personal AI · Eritage ENT Care</div>
+        </div>
+      </div>
+      <div class="mode-badge strategic" id="modeBadge">
+        <span class="dot"></span>
+        <span id="modeLabel">Strategic Mode</span>
+      </div>
+    </div>
+
+    <div class="messages" id="messages">
+      <div class="welcome" id="welcomeScreen">
+        <div class="welcome-logo">🤖</div>
+        <h1 id="welcomeTitle">Good to see you, Fahad</h1>
+        <p>Your personal cognitive extension. I think, plan, build, and deploy — just tell me what you need.</p>
+        <div class="suggestions">
+          <div class="suggestion" onclick="quickSend('List all my GitHub repositories')">📁 List my repos</div>
+          <div class="suggestion" onclick="quickSend('What strategies can grow my clinic patient base?')">🏥 Grow my clinic</div>
+          <div class="suggestion" onclick="quickSend('Give me an SEO audit plan for eritageentcare.com')">🔍 SEO audit plan</div>
+          <div class="suggestion" onclick="quickSend('What do you remember about me?')">🧠 What you know</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="input-area">
+      <div class="status-bar">
+        <div class="status-dot ready" id="statusDot"></div>
+        <span id="statusText">Ready</span>
+      </div>
+      <div class="input-box">
+        <textarea id="userInput" rows="1" placeholder="Ask anything or give me a task…" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+          <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SETTINGS OVERLAY -->
+  <div class="overlay" id="settingsOverlay">
+    <div class="settings-panel">
+      <div class="settings-title">Settings</div>
+      <div class="settings-sub">Preferences are saved locally. API keys stay on the server.</div>
+      <div class="secure-note">🔒 GEMINI_API_KEY · GITHUB_TOKEN — server-side only, never in browser</div>
+
+      <div class="settings-section">
+        <label class="field-label">Your Name</label>
+        <input class="field-input" id="s_name" placeholder="e.g. Fahad"/>
+      </div>
+      <div class="settings-section">
+        <label class="field-label">AI Brain</label>
+        <select class="field-input" id="s_brain">
+          <option value="gemini">Google Gemini 2.5 Flash (Free)</option>
+          <option value="openai">OpenAI GPT-4o-mini (Paid)</option>
+        </select>
+      </div>
+      <div class="settings-section">
+        <label class="field-label">Primary GitHub Repo</label>
+        <div class="repo-row">
+          <input class="field-input" id="s_repo1" placeholder="owner/repo"/>
+          <input class="field-input" id="s_repo1_name" placeholder="Nickname"/>
+        </div>
+      </div>
+      <div class="settings-section">
+        <label class="field-label">About You & Your Projects</label>
+        <textarea class="field-input" id="s_about" placeholder="I'm a Clinical Otolaryngologist running Eritage ENT Care in Uganda..."></textarea>
+      </div>
+      <div class="settings-section">
+        <label class="field-label">Preferences</label>
+        <textarea class="field-input" id="s_prefs" placeholder="Be direct. No jargon. Explain before acting..."></textarea>
+      </div>
+      <div class="settings-section">
+        <label class="field-label">Agent Memory</label>
+        <div class="memory-box" id="memoryBox">Nothing saved yet.</div>
+        <div class="btn-row">
+          <button class="clear-btn" onclick="clearMemory()">🗑 Clear memory</button>
+          <button class="clear-btn" onclick="clearAllChats()">🗑 Clear all chats</button>
+        </div>
+      </div>
+      <button class="save-btn" onclick="saveSettings()">Save & close →</button>
+    </div>
+  </div>
+
+
+  <!-- LOGIN SCREEN -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <div class="login-logo">🤖</div>
+      <div class="login-title">Agent Access</div>
+      <div class="login-sub">Private AI workspace. Authorized users only.</div>
+
+      <div class="login-error" id="loginError"></div>
+
+      <div class="login-field">
+        <label>Username</label>
+        <input class="login-input" type="text" id="loginUser" placeholder="Enter username" autocomplete="username" onkeydown="loginKey(event)"/>
+      </div>
+      <div class="login-field">
+        <label>Password</label>
+        <input class="login-input" type="password" id="loginPass" placeholder="Enter password" autocomplete="current-password" onkeydown="loginKey(event)"/>
+      </div>
+      <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign in →</button>
+
+      <div class="login-footer">Eritage ENT Care · Private Agent</div>
     </div>
   </div>
 
 </div>
 <script>
 // ═══════════════════════════════════════════════════════
-// MEMORY
+// STORAGE
 // ═══════════════════════════════════════════════════════
-const MEM = 'aiagent_v3';
-function mem()        { try { return JSON.parse(localStorage.getItem(MEM)||'{}'); } catch { return {}; } }
-function saveMem(d)   { localStorage.setItem(MEM, JSON.stringify(d)); }
-function get(k, def)  { const v = mem()[k]; return v !== undefined && v !== null ? v : (def !== undefined ? def : null); }
-function set(k, v)    { const m = mem(); m[k] = v; saveMem(m); }
+const MEM = 'aiagent_v4';
+function mem()       { try { return JSON.parse(localStorage.getItem(MEM)||'{}'); } catch { return {}; } }
+function saveMem(d)  { localStorage.setItem(MEM, JSON.stringify(d)); }
+function get(k, def) { const v = mem()[k]; return (v !== undefined && v !== null) ? v : (def !== undefined ? def : null); }
+function set(k, v)   { const m = mem(); m[k] = v; saveMem(m); }
 
-function clearMemory() {
-  if (!confirm('Clear all memory? This removes your name, repo settings and chat history.')) return;
-  localStorage.removeItem(MEM);
-  loadForm();
-  addAI('Memory cleared. Tap ⚙️ to set up again.');
-}
+// ── TOKEN ESTIMATION (rough: 1 token ≈ 4 chars) ─────────────────────────────
+function estimateTokens(str) { return Math.ceil(((str) || '').length / 4); }
 
 function pushConvo(role, content) {
-  const h = get('conversation', []);
-  h.push({ role, content, time: Date.now() });
+  var h = get('conversation', []);
+  var stored = content.length > 4000 ? content.slice(0, 4000) + '...[truncated]' : content;
+  h.push({ role: role, content: stored, time: Date.now() });
   if (h.length > 40) h.splice(0, h.length - 40);
   set('conversation', h);
 }
 
-// ═══════════════════════════════════════════════════════
-// SETUP
-// ═══════════════════════════════════════════════════════
-function openSetup()  { loadForm(); document.getElementById('setupOverlay').classList.add('open'); }
-function closeSetup() { document.getElementById('setupOverlay').classList.remove('open'); }
+var HISTORY_TOKEN_BUDGET = 3000;
+var SUMMARY_KEEP_RECENT  = 6;
 
-function loadForm() {
-  document.getElementById('s_name').value       = get('userName','');
-  document.getElementById('s_brain').value      = get('brain','gemini');
-  document.getElementById('s_repo1').value      = get('repo1','');
-  document.getElementById('s_repo1_name').value = get('repo1name','');
-  document.getElementById('s_about').value      = get('about','');
-  document.getElementById('s_prefs').value      = get('prefs','');
-  const m   = mem();
-  const txt = Object.entries(m)
-    .filter(([k]) => k !== 'conversation')
-    .map(([k,v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
-    .join('\n') || 'Nothing saved yet.';
-  document.getElementById('memoryDisplay').textContent = txt;
+function getCompactHistory() {
+  var full = get('conversation', []);
+  if (!full.length) return [];
+  var recent = full.slice(-SUMMARY_KEEP_RECENT);
+  var older  = full.slice(0, -SUMMARY_KEEP_RECENT);
+  var recentTokens = recent.reduce(function(t, m) { return t + estimateTokens(m.content); }, 0);
+  if (recentTokens >= HISTORY_TOKEN_BUDGET || !older.length) return recent;
+  var remainingBudget = HISTORY_TOKEN_BUDGET - recentTokens;
+  var summaryParts = [];
+  var summaryTokens = 0;
+  for (var i = older.length - 1; i >= 0; i--) {
+    var m     = older[i];
+    var label = m.role === 'user' ? 'U' : 'A';
+    var line  = label + ': ' + m.content.slice(0, 100).split('\n').join(' ');
+    var t     = estimateTokens(line);
+    if (summaryTokens + t > remainingBudget) break;
+    summaryParts.unshift(line);
+    summaryTokens += t;
+  }
+  if (!summaryParts.length) return recent;
+  var summaryMsg = { role: 'user', content: '[PRIOR CONTEXT] ' + summaryParts.join(' | ') };
+  return [summaryMsg].concat(recent);
 }
 
-function saveSetup() {
+function getCompactHistory() {
+  const full = get('conversation', []);
+  if (!full.length) return [];
+
+  // Always keep last SUMMARY_KEEP_RECENT turns verbatim
+  const recent  = full.slice(-SUMMARY_KEEP_RECENT);
+  const older   = full.slice(0, -SUMMARY_KEEP_RECENT);
+
+  // Count tokens in recent turns
+  const recentTokens = recent.reduce((t, m) => t + estimateTokens(m.content), 0);
+  if (recentTokens >= HISTORY_TOKEN_BUDGET || !older.length) return recent;
+
+  // Budget remaining for older context
+  const remainingBudget = HISTORY_TOKEN_BUDGET - recentTokens;
+
+  // Build compressed summary of older turns (include only if fits in budget)
+  const summaryLines = [];
+  let summaryTokens  = 0;
+  for (let i = older.length - 1; i >= 0; i--) {
+    const m     = older[i];
+    const label = m.role === 'user' ? 'U' : 'A';
+    // Compress each turn to max 120 chars for summary
+    const line  = label + ': ' + m.content.slice(0, 120).replace(/\n/g, ' ');
+    const t     = estimateTokens(line);
+    if (summaryTokens + t > remainingBudget) break;
+    summaryLines.unshift(line);
+    summaryTokens += t;
+  }
+
+  if (!summaryLines.length) return recent;
+
+  // Inject as a single system-style context message
+  const summaryMsg = {
+    role: 'user',
+    content: '[CONTEXT SUMMARY] ' + summaryLines.join(' | ')
+  };
+  return [summaryMsg, ...recent];
+}
+
+// ═══════════════════════════════════════════════════════
+// CHAT SESSIONS (sidebar history)
+// ═══════════════════════════════════════════════════════
+function getSessions()          { return get('sessions', []); }
+function getCurrentSessionId()  { return get('currentSession', null); }
+
+function saveSession(id, title, messages) {
+  const sessions = getSessions();
+  const idx = sessions.findIndex(s => s.id === id);
+  const obj = { id, title, messages, updatedAt: Date.now() };
+  if (idx >= 0) sessions[idx] = obj; else sessions.unshift(obj);
+  // Keep max 40 sessions
+  if (sessions.length > 40) sessions.splice(40);
+  set('sessions', sessions);
+}
+
+function loadSession(id) {
+  const sessions = getSessions();
+  return sessions.find(s => s.id === id) || null;
+}
+
+function deleteSession(id) {
+  const sessions = getSessions().filter(s => s.id !== id);
+  set('sessions', sessions);
+  if (getCurrentSessionId() === id) {
+    set('currentSession', null);
+    set('conversation', []);
+    renderMessages([]);
+    showWelcome();
+  }
+  renderChatList();
+}
+
+function newChat() {
+  const id = 'chat_' + Date.now();
+  set('currentSession', id);
+  set('conversation', []);
+  renderMessages([]);
+  showWelcome();
+  renderChatList();
+  closeSidebar();
+  document.getElementById('userInput').focus();
+}
+
+function switchToSession(id) {
+  const session = loadSession(id);
+  if (!session) return;
+  set('currentSession', id);
+  set('conversation', session.messages || []);
+  renderMessages(session.messages || []);
+  renderChatList();
+  closeSidebar();
+}
+
+function renderChatList() {
+  const list = document.getElementById('chatList');
+  const sessions = getSessions();
+  const currentId = getCurrentSessionId();
+  if (!sessions.length) {
+    list.innerHTML = '<div style="padding:12px 10px;font-size:11px;color:var(--text3)">No chats yet</div>';
+    return;
+  }
+  list.innerHTML = sessions.map(s => {
+    const active = s.id === currentId ? ' active' : '';
+    const title = esc(s.title || 'New chat');
+    return `<div class="chat-item${active}" onclick="switchToSession('${s.id}')">
+      <span class="chat-item-icon">💬</span>
+      <span class="chat-item-title">${title}</span>
+      <button class="chat-item-del" onclick="event.stopPropagation();deleteSession('${s.id}')" title="Delete">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function saveCurrentMessages() {
+  const id = getCurrentSessionId();
+  if (!id) return;
+  const conv = get('conversation', []);
+  if (!conv.length) return;
+  // Title = first user message truncated
+  const firstUser = conv.find(m => m.role === 'user');
+  const title = firstUser ? firstUser.content.slice(0, 45) + (firstUser.content.length > 45 ? '…' : '') : 'New chat';
+  saveSession(id, title, conv);
+  renderChatList();
+}
+
+function renderMessages(messages) {
+  const container = document.getElementById('messages');
+  container.innerHTML = '';
+  if (!messages || !messages.length) { showWelcome(); return; }
+  messages.forEach(m => {
+    if (m.role === 'user') _addUser(m.content, false);
+    else if (m.role === 'assistant') _addAI(m.content, false);
+  });
+  scrollBot();
+}
+
+// ═══════════════════════════════════════════════════════
+// MODE
+// ═══════════════════════════════════════════════════════
+var currentMode = 'strategic'; // 'strategic' | 'code'
+
+function setMode(mode) {
+  currentMode = mode;
+  set('mode', mode);
+  document.getElementById('btnStrategic').classList.toggle('active', mode === 'strategic');
+  document.getElementById('btnCode').classList.toggle('active', mode === 'code');
+  const badge = document.getElementById('modeBadge');
+  const label = document.getElementById('modeLabel');
+  if (mode === 'code') {
+    badge.className = 'mode-badge code';
+    label.textContent = 'Code Mode';
+  } else {
+    badge.className = 'mode-badge strategic';
+    label.textContent = 'Strategic Mode';
+  }
+}
+
+function detectMode(text) {
+  const codeSignals = /\b(code|github|repo|deploy|push|commit|file|function|bug|refactor|html|css|js|javascript|api|edit|update|fix|build|implement|create.*file|write.*code|show.*code)\b/i;
+  if (codeSignals.test(text) && currentMode !== 'code') {
+    setMode('code');
+    return true; // mode just switched
+  }
+  if (!codeSignals.test(text) && currentMode !== 'strategic') {
+    setMode('strategic');
+  }
+  return false;
+}
+
+// ═══════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════
+function openSettings() {
+  document.getElementById('s_name').value       = get('userName', '');
+  document.getElementById('s_brain').value      = get('brain', 'gemini');
+  document.getElementById('s_repo1').value      = get('repo1', '');
+  document.getElementById('s_repo1_name').value = get('repo1name', '');
+  document.getElementById('s_about').value      = get('about', '');
+  document.getElementById('s_prefs').value      = get('prefs', '');
+  const m = mem();
+  const txt = Object.entries(m)
+    .filter(([k]) => !['conversation','sessions','currentSession','msg_queue'].includes(k))
+    .map(([k,v]) => `${k}: ${typeof v==='object'?JSON.stringify(v):v}`)
+    .join('\n') || 'Nothing saved yet.';
+  document.getElementById('memoryBox').textContent = txt;
+  document.getElementById('settingsOverlay').classList.add('open');
+}
+
+function closeSettings() { document.getElementById('settingsOverlay').classList.remove('open'); }
+
+function saveSettings() {
   set('userName',  document.getElementById('s_name').value.trim());
   set('brain',     document.getElementById('s_brain').value);
   set('repo1',     document.getElementById('s_repo1').value.trim());
@@ -260,10 +783,43 @@ function saveSetup() {
   set('about',     document.getElementById('s_about').value.trim());
   set('prefs',     document.getElementById('s_prefs').value.trim());
   set('setupDone', true);
-  closeSetup();
+  closeSettings();
   updateStatus();
   const n = get('userName','');
-  addAI('✅ All saved' + (n ? ', ' + n : '') + '! What would you like to do?');
+  if (n) document.getElementById('welcomeTitle').textContent = 'Good to see you, ' + n;
+  addAI('✅ Settings saved' + (n ? ', ' + n : '') + '. What would you like to work on?');
+}
+
+function clearMemory() {
+  if (!confirm('Clear all agent memory?')) return;
+  set('learnedFacts', []);
+  addAI('Memory cleared.');
+  openSettings();
+}
+
+function clearAllChats() {
+  if (!confirm('Delete all chat history?')) return;
+  set('sessions', []);
+  set('conversation', []);
+  set('currentSession', null);
+  renderChatList();
+  renderMessages([]);
+  showWelcome();
+  closeSettings();
+}
+
+// ═══════════════════════════════════════════════════════
+// SIDEBAR
+// ═══════════════════════════════════════════════════════
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const bd = document.getElementById('sidebarBackdrop');
+  sb.classList.toggle('open');
+  bd.classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('show');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -272,47 +828,38 @@ function saveSetup() {
 function updateStatus() {
   const n  = get('userName','');
   const rn = get('repo1name','');
-  document.getElementById('statusDot').className  = 'status-dot ready';
+  document.getElementById('statusDot').className = 'status-dot ready';
   document.getElementById('statusText').textContent = 'Ready' + (rn ? ' · ' + rn : '') + (n ? ' · ' + n : '');
-  if (n)  document.getElementById('agentName').textContent = n + "'s Agent";
-  if (rn) document.getElementById('agentSub').textContent  = rn;
+  if (n) {
+    document.getElementById('agentTitle').textContent = n + "'s Agent";
+    document.getElementById('welcomeTitle').textContent = 'Good to see you, ' + n;
+  }
+  if (rn) document.getElementById('agentSubtitle').textContent = rn + ' · Eritage ENT Care';
 }
 
-function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; }
 function handleKey(e)   { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
 function quickSend(t)   { document.getElementById('userInput').value = t; sendMessage(); }
-function scrollBot()    { const m = document.getElementById('messages'); setTimeout(() => m.scrollTop = m.scrollHeight, 50); }
+function scrollBot()    { const m = document.getElementById('messages'); setTimeout(() => m.scrollTop = m.scrollHeight, 60); }
 
-function clearChat() {
-  document.getElementById('messages').innerHTML =
-    '<div class="welcome" id="welcomeMsg"><div class="welcome-icon">🤖</div><h2>Fresh start</h2><p>What would you like to do?</p></div>';
-}
-
-function addUser(text) {
-  const el = document.getElementById('welcomeMsg'); if (el) el.remove();
+function showWelcome() {
   const msgs = document.getElementById('messages');
-  const d = document.createElement('div');
-  d.className = 'msg user';
-  d.innerHTML = '<div class="msg-avatar">👤</div><div class="bubble">' + esc(text) + '</div>';
-  msgs.appendChild(d); scrollBot();
+  if (!document.getElementById('welcomeScreen')) {
+    const w = document.createElement('div');
+    w.className = 'welcome'; w.id = 'welcomeScreen';
+    const n = get('userName', 'Fahad');
+    w.innerHTML = `<div class="welcome-logo">🤖</div>
+      <h1>Good to see you, ${esc(n)}</h1>
+      <p>Your personal cognitive extension. I think, plan, build, and deploy — just tell me what you need.</p>
+      <div class="suggestions">
+        <div class="suggestion" onclick="quickSend('List all my GitHub repositories')">📁 List my repos</div>
+        <div class="suggestion" onclick="quickSend('What strategies can grow my clinic patient base?')">🏥 Grow my clinic</div>
+        <div class="suggestion" onclick="quickSend('Give me an SEO audit plan for eritageentcare.com')">🔍 SEO audit plan</div>
+        <div class="suggestion" onclick="quickSend('What do you remember about me?')">🧠 What you know</div>
+      </div>`;
+    msgs.appendChild(w);
+  }
 }
-
-function addAI(html) {
-  const msgs = document.getElementById('messages');
-  const d = document.createElement('div');
-  d.className = 'msg ai';
-  d.innerHTML = '<div class="msg-avatar">🤖</div><div class="bubble">' + html + '</div>';
-  msgs.appendChild(d); scrollBot(); return d;
-}
-
-function showTyping() {
-  const msgs = document.getElementById('messages');
-  const d = document.createElement('div');
-  d.className = 'typing'; d.id = 'typing';
-  d.innerHTML = '<div class="msg-avatar" style="width:28px;height:28px;border-radius:8px;background:var(--ink);display:flex;align-items:center;justify-content:center;font-size:13px;">🤖</div><div class="typing-dots"><span></span><span></span><span></span></div>';
-  msgs.appendChild(d); scrollBot();
-}
-function hideTyping() { const t = document.getElementById('typing'); if (t) t.remove(); }
 
 function esc(t) {
   return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>');
@@ -320,392 +867,412 @@ function esc(t) {
 
 function fmt(text) {
   if (!text) return '';
-  text = text.replace(/```[\s\S]*?```/g, m => '<pre>' + m.slice(3, m.lastIndexOf('```')).replace(/^[a-z]*\n/,'') + '</pre>');
-  text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // Code blocks
+  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
+    `<pre><code>${code.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</code></pre>`);
+  // Inline code
+  text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
+  // Bold
   text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  // Headers
+  text = text.replace(/^### (.+)$/gm, '<strong style="font-size:13px;color:var(--accent)">$1</strong>');
+  text = text.replace(/^## (.+)$/gm,  '<strong style="font-size:14px">$1</strong>');
+  // HR
+  text = text.replace(/^---$/gm, '<hr/>');
+  // Newlines
   text = text.replace(/\n/g, '<br/>');
   return text;
 }
 
 function safeParseJSON(str) {
-  const cleaned = String(str).trim()
-    .replace(/^```json?\s*/i, '').replace(/```\s*$/, '')
-    .replace(/^`+|`+$/g, '').trim();
-  return JSON.parse(cleaned);
+  const c = String(str).trim().replace(/^```json?\s*/i,'').replace(/```\s*$/,'').replace(/^`+|`+$/g,'').trim();
+  return JSON.parse(c);
 }
 
+function _addUser(text, animate) {
+  const w = document.getElementById('welcomeScreen'); if (w) w.remove();
+  const msgs = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = 'msg-wrap user' + (animate ? '' : '');
+  if (!animate) d.style.animation = 'none';
+  d.innerHTML = `<div class="msg-avatar">👤</div><div class="bubble">${esc(text)}</div>`;
+  msgs.appendChild(d); scrollBot();
+}
+
+function addUser(text) { _addUser(text, true); }
+
+function _addAI(html, animate) {
+  const msgs = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = 'msg-wrap ai';
+  if (!animate) d.style.animation = 'none';
+  d.innerHTML = `<div class="msg-avatar">🤖</div><div class="bubble">${html}</div>`;
+  msgs.appendChild(d); scrollBot(); return d;
+}
+
+function addAI(html) { return _addAI(html, true); }
+
+function showTyping() {
+  const msgs = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = 'typing-wrap'; d.id = 'typing';
+  d.innerHTML = '<div class="msg-avatar" style="width:30px;height:30px;background:var(--accent2);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;margin-top:2px;">🤖</div><div class="typing-dots"><span></span><span></span><span></span></div>';
+  msgs.appendChild(d); scrollBot();
+}
+function hideTyping() { const t = document.getElementById('typing'); if (t) t.remove(); }
+
 // ═══════════════════════════════════════════════════════
-// SYSTEM PROMPT
+// SYSTEM PROMPT — dual mode
 // ═══════════════════════════════════════════════════════
 function sysPrompt() {
-  const name  = get('userName', 'the user');
-  const repo1 = get('repo1', '');
-  const r1n   = get('repo1name', '');
-  const about = get('about', '');
-  const prefs = get('prefs', '');
-  const facts = get('learnedFacts', []);
-  const now   = new Date();
-  const dateStr = now.toLocaleDateString('en-GB', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
-  const timeStr = now.toLocaleTimeString('en-GB', {hour:'2-digit',minute:'2-digit',timeZoneName:'short'});
+  var name    = get('userName', 'Fahad');
+  var repo1   = get('repo1', '');
+  var r1n     = get('repo1name', '');
+  var about   = get('about', '');
+  var prefs   = get('prefs', '');
+  var facts   = get('learnedFacts', []);
+  var mode    = currentMode;
+  var now     = new Date();
+  var dateStr = now.toLocaleDateString('en-GB', {year:'numeric', month:'short', day:'numeric'});
 
-  return [
-    'You are a personal AI agent for ' + name + '. You have real GitHub access, persistent memory, and help manage and deploy code in plain language.',
-    '',
-    'TODAY: ' + dateStr + ' at ' + timeStr,
-    '',
-    'ABOUT ' + name.toUpperCase() + ':',
-    about || 'Not provided yet.',
-    '',
-    'PREFERENCES:',
-    prefs || 'Not set yet.',
-    '',
-    'CONFIGURED GITHUB REPO:',
-    '- ' + (r1n || 'Main repo') + ': ' + (repo1 || 'not set'),
-    '',
-    'THINGS YOU KNOW ABOUT THEM:',
-    facts.length ? facts.join('\n') : 'Nothing yet — learn as you chat.',
-    '',
-    'GITHUB ACCESS:',
-    'The system automatically fetches real GitHub data and injects it into your messages as LIVE GITHUB DATA.',
-    'When you see LIVE GITHUB DATA — answer from it immediately. Do not say you are fetching, waiting, or sending a request.',
-    'If no live data was injected and you need it, use ONE action block (no backticks, raw JSON only):',
-    '[ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]',
-    '[ACTION:GITHUB]{"action":"getFile","repo":"owner/repo","path":"index.html"}[/ACTION:GITHUB]',
-    '[ACTION:GITHUB]{"action":"listCommits","repo":"owner/repo","limit":10}[/ACTION:GITHUB]',
-    '',
-    'To push file changes (always confirm first):',
-    '[ACTION:DEPLOY]{"repo":"owner/repo","branch":"main","commit_message":"msg","files":[{"path":"file.html","content":"full content"}]}[/ACTION:DEPLOY]',
-    '',
-    'HARD RULES:',
-    '- NEVER say you are waiting, fetching, or that data is coming. If you have it, use it. If you do not have it, say so plainly.',
-    '- NEVER make up repository names, file contents, or commit history. Only state what is in LIVE GITHUB DATA.',
-    '- NEVER push or delete without Fahad explicitly saying yes.',
-    '- When you learn a fact about Fahad, append: [MEMORY]the fact[/MEMORY]',
-    '',
-    'PERSONALITY: Warm, direct, plain language. Trusted technical co-founder. Brief. Action-oriented.',
-  ].join('\n');
+  // Lean base: skip defaults to save tokens
+  var aboutLine = (about && about.length > 5)
+    ? 'About: ' + about
+    : 'ENT surgeon, Uganda. Non-developer. Plain language only.';
+  var prefsLine = (prefs && prefs.length > 5)
+    ? 'Prefs: ' + prefs
+    : 'Direct, brief, no jargon.';
+  var factLine  = facts.length
+    ? ' Known: ' + facts.slice(-10).map(function(f) { return f.slice(0, 80); }).join('; ')
+    : '';
+
+  var base = 'Agent for ' + name + ' (' + dateStr + '). Repo: ' + (repo1 || 'not set') + '. '
+    + aboutLine + ' ' + prefsLine + factLine;
+
+  var strategicInstr = 'STRATEGIC MODE: You are a senior strategist+technologist. Think deeply, surface insights unprompted, give concrete actionable advice. Warm, occasionally witty. Say "Switching to Code Mode" when appropriate.';
+
+  var codeInstr = 'CODE MODE rules: 1) Start every reply "Code Mode — [what you are doing]" 2) Explain change before code 3) Full file only 4) No action without explicit yes/confirmed 5) Never assume file structure 6) Never hallucinate paths.'
+    + ' GitHub (raw JSON, no backticks): [ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]'
+    + ' [ACTION:GITHUB]{"action":"getFile","repo":"owner/repo","path":"file"}[/ACTION:GITHUB]'
+    + ' Deploy: [ACTION:DEPLOY]{"repo":"...","branch":"main","commit_message":"...","files":[{"path":"...","content":"..."}]}[/ACTION:DEPLOY]'
+    + ' Never push without explicit yes.';
+
+  var memRule = ' Store new facts: [MEMORY]fact[/MEMORY]';
+
+  return base + '\n' + (mode === 'code' ? codeInstr : strategicInstr) + memRule;
 }
 
+
 // ═══════════════════════════════════════════════════════
-// API CALLS
+// RATE LIMIT + COUNTDOWN
 // ═══════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════
-// RATE LIMIT STATE + COUNTDOWN TIMER (Gemini only)
-// ═══════════════════════════════════════════════════════
-var geminiResetAt    = 0;   // timestamp ms when Gemini quota resets
+var geminiResetAt     = 0;
 var countdownInterval = null;
-var messageQueue      = [];  // holds queued messages while quota is hit
+var messageQueue      = [];
 
 function nextMidnightPacific() {
-  // Gemini free tier resets at midnight US Pacific (approx UTC-8)
-  var offset  = 8 * 60 * 60 * 1000;
+  var offset = 8 * 60 * 60 * 1000;
   var pacific = new Date(Date.now() - offset);
   pacific.setHours(24, 0, 0, 0);
   return pacific.getTime() + offset;
 }
-
-function markGeminiLimited() {
-  geminiResetAt = nextMidnightPacific();
-  set('gemini_reset_at', geminiResetAt);
-  startCountdown();
-}
-
-function isGeminiLimited() {
-  if (!geminiResetAt) geminiResetAt = get('gemini_reset_at', 0);
-  return geminiResetAt > Date.now();
-}
-
-function clearGeminiLimit() {
-  geminiResetAt = 0;
-  set('gemini_reset_at', 0);
-}
+function markGeminiLimited() { geminiResetAt = nextMidnightPacific(); set('gemini_reset_at', geminiResetAt); startCountdown(); }
+function isGeminiLimited()   { if (!geminiResetAt) geminiResetAt = get('gemini_reset_at', 0); return geminiResetAt > Date.now(); }
+function clearGeminiLimit()  { geminiResetAt = 0; set('gemini_reset_at', 0); }
 
 function formatCountdown(ms) {
   if (ms <= 0) return '0s';
-  var s = Math.floor(ms / 1000);
-  var h = Math.floor(s / 3600); s -= h * 3600;
-  var m = Math.floor(s / 60);   s -= m * 60;
-  if (h > 0) return h + 'h ' + m + 'm';
-  if (m > 0) return m + 'm ' + s + 's';
-  return s + 's';
+  var s = Math.floor(ms/1000), h = Math.floor(s/3600); s -= h*3600;
+  var m = Math.floor(s/60); s -= m*60;
+  if (h > 0) return h+'h '+m+'m'; if (m > 0) return m+'m '+s+'s'; return s+'s';
 }
 
 function startCountdown() {
   if (countdownInterval) clearInterval(countdownInterval);
   countdownInterval = setInterval(function() {
     if (!isGeminiLimited()) {
-      clearInterval(countdownInterval);
-      countdownInterval = null;
-      clearGeminiLimit();
-      updateStatus();
-      flushQueue();
-      return;
+      clearInterval(countdownInterval); countdownInterval = null;
+      clearGeminiLimit(); updateStatus(); flushQueue(); return;
     }
-    var remaining = geminiResetAt - Date.now();
-    document.getElementById('statusDot').className    = 'status-dot';
-    document.getElementById('statusText').textContent =
-      '⏳ Gemini quota resets in ' + formatCountdown(remaining) + ' — messages queued';
+    document.getElementById('statusDot').className = 'status-dot';
+    document.getElementById('statusText').textContent = '⏳ Quota resets in ' + formatCountdown(geminiResetAt - Date.now());
   }, 1000);
 }
 
-// ═══════════════════════════════════════════════════════
-// MESSAGE QUEUE — auto-flushes when quota resets
-// ═══════════════════════════════════════════════════════
 function queueMessage(text) {
   messageQueue.push(text);
-  // Save queue to localStorage so it survives a page refresh
   set('msg_queue', messageQueue);
-  var resetIn = formatCountdown(geminiResetAt - Date.now());
-  addAI(
-    '📥 <strong>Message saved.</strong> Gemini quota is used up for today.<br/>' +
-    'Quota resets in <strong>' + resetIn + '</strong>. Your message will send automatically.<br/>' +
-    '<small style="color:var(--muted)">Queued: "' + esc(text.slice(0, 80)) + (text.length > 80 ? '…' : '') + '"</small><br/>' +
-    '<small style="color:var(--muted)">Tip: You can also upgrade Gemini at <a href="https://aistudio.google.com" target="_blank">aistudio.google.com</a>.</small>'
-  );
+  addAI('📥 <strong>Message queued.</strong> Gemini quota is up for today — resets in <strong>' + formatCountdown(geminiResetAt - Date.now()) + '</strong>. Will auto-send when quota refreshes.');
 }
 
 async function flushQueue() {
-  // Also restore any queue saved across page refreshes
   var saved = get('msg_queue', []);
   if (saved.length && !messageQueue.length) messageQueue = saved;
   set('msg_queue', []);
   if (!messageQueue.length) return;
   var queued = messageQueue.splice(0);
-  addAI('✅ <strong>Gemini quota restored!</strong> Sending ' + queued.length + ' queued message' + (queued.length > 1 ? 's' : '') + '…');
+  addAI('✅ <strong>Quota restored!</strong> Sending ' + queued.length + ' queued message' + (queued.length > 1 ? 's' : '') + '…');
   for (var i = 0; i < queued.length; i++) {
     await sendMessageText(queued[i]);
     await new Promise(function(r){ setTimeout(r, 800); });
   }
 }
 
-// ═══════════════════════════════════════════════════════
-// AI CALL — Gemini only, with clear quota handling
-// ═══════════════════════════════════════════════════════
+function reasoningGate(text) {
+  var t = text.trim().toLowerCase();
+  if (/^(hi|hello|hey|halo|hiya|yo)[!.\s]*$/.test(t))
+    return 'Hey ' + (get('userName', 'Fahad') || 'there') + '! What are we working on today?';
+  if (/^(thanks|thank you|thx|cheers)[!.\s]*$/.test(t))
+    return 'Anytime! What is next?';
+  if (/^(ok|okay|got it|noted|sure|alright|sounds good)[!.\s]*$/.test(t))
+    return 'Got it. What would you like to do next?';
+  if (/^(what is |what.s )?(today.?s )?(date|time|day)\??$/.test(t)) {
+    var n = new Date();
+    return n.toLocaleDateString('en-GB', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
+      + ' at ' + n.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+  }
+  if (/^what (mode|modes?)/.test(t))
+    return currentMode === 'code' ? 'Code Mode — strict execution.' : 'Strategic Mode — planning and thinking.';
+  return null;
+}
+
+var totalTokensUsed = 0;
+
 async function callAI(userMsg) {
   var provider = get('brain', 'gemini');
-  var history  = get('conversation', []).slice(-20);
-
-  // Already known to be rate-limited — don't even try
-  if (isGeminiLimited()) {
-    var e = new Error('quota'); e.isQuota = true; throw e;
-  }
-
+  var history  = getCompactHistory();
+  if (isGeminiLimited()) { var e = new Error('quota'); e.isQuota = true; throw e; }
+  var sys = sysPrompt();
+  var est = estimateTokens(sys) + estimateTokens(userMsg)
+    + history.reduce(function(t, m) { return t + estimateTokens(m.content); }, 0);
+  totalTokensUsed += est;
+  console.log('[tokens] input est:', est, '| session total:', totalTokensUsed);
   var r = await fetch('/api/ai', {
-    method:  'POST',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({ provider: provider, systemPrompt: sysPrompt(), history: history, userMessage: userMsg }),
+    body: JSON.stringify({ provider: provider, systemPrompt: sys, history: history, userMessage: userMsg }),
   });
   var text = await r.text();
   var data;
   try { data = text ? JSON.parse(text) : {}; }
-  catch(e) { var pe = new Error('Server returned invalid response: ' + text.slice(0,120)); throw pe; }
-
+  catch(e) { throw new Error('Server error: ' + text.slice(0, 120)); }
   if (!r.ok) {
     var msg = data.error || 'HTTP ' + r.status;
     var low = msg.toLowerCase();
     var err = new Error(msg);
-
-    if (r.status === 429 || low.includes('quota') || low.includes('exhausted') || low.includes('resource_exhausted')) {
-      err.isQuota = true;
-      throw err;
-    }
-    if (r.status === 401 || r.status === 403) {
-      err.friendlyHTML = '🔑 <strong>API key rejected.</strong> Check your GEMINI_API_KEY in Vercel environment variables.';
-      throw err;
-    }
-    err.friendlyHTML = '❌ <strong>Error:</strong> ' + esc(msg);
+    if (r.status === 429 || low.includes('quota') || low.includes('exhausted') || low.includes('resource_exhausted')) { err.isQuota = true; throw err; }
+    if (r.status === 401 || r.status === 403) { err.friendlyHTML = '&#128273; <strong>API key rejected.</strong> Check GEMINI_API_KEY in Vercel.'; throw err; }
+    err.friendlyHTML = '&#10060; <strong>Error:</strong> ' + esc(msg);
     throw err;
   }
-
   if (!data.response) throw new Error('Empty response from server.');
   return data.response;
 }
 
+
+// ═══════════════════════════════════════════════════════
+// GITHUB API
+// ═══════════════════════════════════════════════════════
 async function githubAPI(payload) {
-  const r    = await fetch('/api/github', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(payload),
+  var r = await fetch('/api/github', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
-  const text = await r.text();
-  let data;
+  var text = await r.text();
+  var data;
   try { data = text ? JSON.parse(text) : {}; }
-  catch(e) { throw new Error('GitHub API returned invalid response: ' + text.slice(0, 120)); }
+  catch(e) { throw new Error('GitHub API invalid response: ' + text.slice(0,120)); }
   if (!r.ok) throw new Error(data.error || 'GitHub HTTP ' + r.status);
   return data;
 }
 
 // ═══════════════════════════════════════════════════════
-// GITHUB PREFETCH (runs before AI call for repo/commit queries)
+// PREFETCH
 // ═══════════════════════════════════════════════════════
-const REPO_RE   = /repo|repositor|github|my projects?|my sites?|what.*(have|own)|how many/i;
-const COMMIT_RE = /commit|commit history|recent changes|what changed|last (push|update)/i;
+var REPO_RE   = /repo|repositor|github|my projects?|my sites?|what.*(have|own)|how many/i;
+var COMMIT_RE = /commit|commit history|recent changes|what changed|last (push|update)/i;
+var FILE_RE   = /(?:read|show|open|view|get|fetch)\s.{1,60}\.(html|css|js|md|json|txt|py)/i;
+
+var _ghCache = {};
+async function cachedGithubAPI(payload) {
+  var key = JSON.stringify(payload);
+  if (_ghCache[key]) return _ghCache[key];
+  var result = await githubAPI(payload);
+  _ghCache[key] = result;
+  return result;
+}
 
 async function prefetchGitHub(text) {
   try {
     if (REPO_RE.test(text)) {
-      const data = await githubAPI({ action: 'listRepos' });
-      if (!data.repos) return null;
-      if (!data.repos.length) return 'LIVE GITHUB DATA: No repositories found in this account.';
-      const lines = data.repos.map(function(r) {
-        return '• ' + r.name + (r.description ? ' — ' + r.description : '') + (r.language ? ' [' + r.language + ']' : '') + ' (updated: ' + (r.updatedAt ? r.updatedAt.slice(0,10) : '?') + ', ' + (r.private ? 'private' : 'public') + ')';
-      }).join('\n');
-      return 'LIVE GITHUB DATA (fetched ' + new Date().toISOString() + '):\n' + name + ' has ' + data.total + ' repo' + (data.total === 1 ? '' : 's') + ' on GitHub:\n' + lines;
+      var data = await cachedGithubAPI({ action: 'listRepos' });
+      if (!data.repos || !data.repos.length) return 'REPOS: none found.';
+      var summary = data.repos.map(function(r) {
+        return r.name + (r.language ? ' [' + r.language + ']' : '') + (r.private ? ' (private)' : '');
+      }).join(', ');
+      return 'REPOS (' + data.total + '): ' + summary;
     }
     if (COMMIT_RE.test(text)) {
-      const repo = get('repo1', '');
+      var repo = get('repo1', '');
       if (!repo) return null;
-      const data = await githubAPI({ action: 'listCommits', repo: repo, limit: 8 });
-      if (!data.commits || !data.commits.length) return null;
-      const lines = data.commits.map(function(c) {
-        return '• [' + c.sha + '] ' + (c.date ? c.date.slice(0,10) : '') + ' — ' + c.message + ' (by ' + c.author + ')';
-      }).join('\n');
-      return 'LIVE GITHUB DATA — Recent commits for ' + repo + ':\n' + lines;
+      var data2 = await cachedGithubAPI({ action: 'listCommits', repo: repo, limit: 5 });
+      if (!data2.commits || !data2.commits.length) return null;
+      var lines = data2.commits.map(function(c) {
+        return '[' + c.sha + '] ' + (c.date ? c.date.slice(0, 10) : '') + ': ' + c.message.slice(0, 60);
+      }).join(' | ');
+      return 'COMMITS ' + repo + ': ' + lines;
     }
-  } catch (e) {
-    console.warn('GitHub prefetch failed:', e.message);
-    return 'Note: GitHub prefetch failed (' + e.message + '). Answer from memory only.';
+    if (FILE_RE.test(text)) {
+      var fileMatch = text.match(/[\w\-./]+\.(html|css|js|md|json|txt|py)/i);
+      var repo2 = get('repo1', '');
+      if (fileMatch && repo2) {
+        var data3 = await cachedGithubAPI({ action: 'getFile', repo: repo2, path: fileMatch[0] });
+        if (data3.content) {
+          var capped = data3.content.length > 3000
+            ? data3.content.slice(0, 3000) + '...[truncated at 3000 chars]'
+            : data3.content;
+          return 'FILE ' + fileMatch[0] + ':\n' + capped;
+        }
+      }
+    }
+  } catch(e) {
+    return 'GitHub prefetch failed: ' + e.message;
   }
   return null;
 }
 
-// ═══════════════════════════════════════════════════════
-// DEPLOY
-// ═══════════════════════════════════════════════════════
 async function executeDeploy(action, msgEl) {
   const { repo, branch, commit_message, files } = action;
   const bubble = msgEl.querySelector('.bubble');
   let log = '';
-  function appendLog(line, cls) {
-    log += '<div class="' + (cls||'') + '">' + line + '</div>';
-    bubble.querySelector('.deploy-log').innerHTML = log;
-    scrollBot();
-  }
-  bubble.innerHTML = '<strong>🚀 Deploying to GitHub...</strong><div class="deploy-progress"><div class="deploy-bar-wrap"><div class="deploy-bar" id="dBar"></div></div><div class="deploy-label" id="dLabel">Starting...</div></div><div class="deploy-log"></div>';
+  const appendLog = (line, cls) => { log += `<div class="${cls||''}">${line}</div>`; bubble.querySelector('.deploy-log').innerHTML = log; scrollBot(); };
+  bubble.innerHTML = '<strong>🚀 Deploying…</strong><div class="deploy-bar-wrap"><div class="deploy-bar" id="dBar"></div></div><div class="deploy-label" id="dLabel">Starting…</div><div class="deploy-log"></div>';
   for (var i = 0; i < files.length; i++) {
     var f = files[i];
-    document.getElementById('dBar').style.width = Math.round((i / files.length) * 100) + '%';
-    document.getElementById('dLabel').textContent = i + '/' + files.length + ' — ' + f.path;
-    appendLog('→ ' + f.path, 'info');
-    try {
-      await githubAPI({ action: 'pushFile', repo: repo, branch: branch || 'main', path: f.path, content: f.content, commitMessage: commit_message || 'update: ' + f.path });
-      appendLog('  ✅ pushed', 'ok');
-    } catch (e) {
-      appendLog('  ❌ ' + e.message, 'err');
-    }
-    await new Promise(function(r){ setTimeout(r, 280); });
+    document.getElementById('dBar').style.width = Math.round((i/files.length)*100) + '%';
+    document.getElementById('dLabel').textContent = i+'/'+files.length+' — '+f.path;
+    appendLog('→ '+f.path, 'info');
+    try { await githubAPI({ action:'pushFile', repo, branch:branch||'main', path:f.path, content:f.content, commitMessage:commit_message||'update: '+f.path }); appendLog('  ✅ pushed','ok'); }
+    catch(e) { appendLog('  ❌ '+e.message,'err'); }
+    await new Promise(r => setTimeout(r, 280));
   }
   document.getElementById('dBar').style.width = '100%';
-  document.getElementById('dLabel').textContent = files.length + '/' + files.length + ' complete';
-  appendLog('🎉 Done! Vercel will rebuild in ~60 seconds.', 'ok');
+  document.getElementById('dLabel').textContent = files.length+'/'+files.length+' complete';
+  appendLog('🎉 Done! Vercel rebuilds in ~60s.', 'ok');
   scrollBot();
 }
 
 async function confirmDeploy(btn, actionStr) {
   btn.parentNode.innerHTML = '<em>Deploying…</em>';
-  var action = JSON.parse(actionStr.replace(/&quot;/g, '"'));
+  var action = JSON.parse(actionStr.replace(/&quot;/g,'"'));
   var el = addAI('<strong>🚀 Starting…</strong>');
   try { await executeDeploy(action, el); }
-  catch (e) { el.querySelector('.bubble').innerHTML = '❌ Deploy failed: ' + esc(e.message); }
+  catch(e) { el.querySelector('.bubble').innerHTML = '❌ Deploy failed: ' + esc(e.message); }
 }
 
 // ═══════════════════════════════════════════════════════
 // RESPONSE HANDLER
 // ═══════════════════════════════════════════════════════
 async function handleResponse(raw, msgEl) {
-  // Extract special blocks
   var memMatches = [...raw.matchAll(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g)];
   var ghMatch    = raw.match(/\[ACTION:GITHUB\]([\s\S]*?)\[\/ACTION:GITHUB\]/);
   var depMatch   = raw.match(/\[ACTION:DEPLOY\]([\s\S]*?)\[\/ACTION:DEPLOY\]/);
 
-  // Save memory facts
-  memMatches.forEach(function(m) {
+  memMatches.forEach(m => {
     var fact = m[1].trim();
-    var facts = get('learnedFacts', []);
+    var facts = get('learnedFacts',[]);
     if (!facts.includes(fact)) { facts.push(fact); set('learnedFacts', facts); }
   });
 
-  // Clean display text
+  // Check if agent is announcing a mode switch
+  var modeSwitchToCode      = /switching to.*code mode|entering code mode|⚡ code mode/i.test(raw);
+  var modeSwitchToStrategic = /switching to.*strategic mode|back to strategic/i.test(raw);
+  if (modeSwitchToCode)      setMode('code');
+  if (modeSwitchToStrategic) setMode('strategic');
+
   var display = raw
-    .replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g, '')
-    .replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g, '')
-    .replace(/\[ACTION:DEPLOY\][\s\S]*?\[\/ACTION:DEPLOY\]/g, '')
+    .replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g,'')
+    .replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g,'')
+    .replace(/\[ACTION:DEPLOY\][\s\S]*?\[\/ACTION:DEPLOY\]/g,'')
     .trim();
 
   if (display) msgEl.querySelector('.bubble').innerHTML = fmt(display);
   scrollBot();
 
-  // Handle GitHub read action
   if (ghMatch) {
     var ghPayload;
     try { ghPayload = safeParseJSON(ghMatch[1]); }
-    catch (e) { addAI('⚠️ GitHub action JSON was malformed. Please rephrase your request.'); return; }
-
+    catch(e) { addAI('⚠️ GitHub action JSON malformed. Rephrase your request.'); return; }
     var fetchEl = addAI('<em>🔍 Fetching from GitHub (' + ghPayload.action + ')…</em>');
     var ghResult;
     try {
       ghResult = await githubAPI(ghPayload);
       fetchEl.querySelector('.bubble').innerHTML = '<em>✅ Got data — summarising…</em>';
-    } catch (e) {
-      fetchEl.querySelector('.bubble').innerHTML = '❌ GitHub error: ' + esc(e.message);
-      return;
-    }
-
-    var resultStr  = JSON.stringify(ghResult, null, 2);
-    var followUp   = 'Here is the real live data from GitHub for my ' + ghPayload.action + ' request:\n\n' + resultStr + '\n\nPlease summarise this clearly and helpfully for me in plain language.';
-    pushConvo('assistant', raw);
-    pushConvo('user', followUp);
+    } catch(e) { fetchEl.querySelector('.bubble').innerHTML = '❌ GitHub error: ' + esc(e.message); return; }
+    var followUp = 'Here is the real live GitHub data for ' + ghPayload.action + ':\n\n' + JSON.stringify(ghResult, null, 2) + '\n\nPlease summarise this clearly in plain language for me.';
+    pushConvo('assistant', raw); pushConvo('user', followUp);
     showTyping();
     try {
       var summary = await callAI(followUp);
       hideTyping();
-      var clean = summary.replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g,'').replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g,'').trim();
-      fetchEl.querySelector('.bubble').innerHTML = fmt(clean);
+      fetchEl.querySelector('.bubble').innerHTML = fmt(summary.replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g,'').replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g,'').trim());
       pushConvo('assistant', summary);
-    } catch (e) {
-      hideTyping();
-      fetchEl.querySelector('.bubble').innerHTML = e.friendlyHTML || ('❌ ' + esc(e.message));
-    }
-    scrollBot();
-    return;
+    } catch(e) { hideTyping(); fetchEl.querySelector('.bubble').innerHTML = e.friendlyHTML || ('❌ ' + esc(e.message)); }
+    scrollBot(); return;
   }
 
-  // Handle deploy action
   if (depMatch) {
     var action;
     try { action = safeParseJSON(depMatch[1]); }
-    catch (e) { addAI('⚠️ Deploy action had malformed JSON. Please try again.'); return; }
-    var cnt = (action.files && action.files.length) || 0;
-    var safe = JSON.stringify(action).replace(/"/g, '&quot;');
-    addAI('<strong>Ready to deploy ' + cnt + ' file(s) to <code>' + action.repo + '</code></strong><br/><br/>Shall I go ahead?<br/><button class="action-btn green" onclick="confirmDeploy(this,\'' + safe + '\')">✅ Yes, deploy now</button><button class="action-btn" onclick="this.closest(\'.msg\').remove()">❌ Cancel</button>');
+    catch(e) { addAI('⚠️ Deploy action malformed JSON. Please try again.'); return; }
+    var cnt  = (action.files && action.files.length) || 0;
+    var safe = JSON.stringify(action).replace(/"/g,'&quot;');
+    addAI(`<strong>Ready to deploy ${cnt} file(s) to <code>${action.repo}</code></strong><br/><br/>Confirm to proceed:<br/><button class="action-btn green" onclick="confirmDeploy(this,'${safe}')">✅ Yes, deploy</button><button class="action-btn red" onclick="this.closest('.msg-wrap').remove()">❌ Cancel</button>`);
   }
 }
 
 // ═══════════════════════════════════════════════════════
-// MAIN SEND — button always re-enabled in finally block
+// SEND
 // ═══════════════════════════════════════════════════════
 async function sendMessageText(text) {
+  // Auto-detect mode
+  var justSwitched = detectMode(text);
+
   addUser(text);
   document.getElementById('statusDot').className    = 'status-dot thinking';
-  document.getElementById('statusText').textContent  = 'Thinking…';
+  document.getElementById('statusText').textContent = currentMode === 'code' ? '⚡ Code Mode — thinking…' : '⚡ Thinking…';
   showTyping();
+
   try {
+    // Reasoning gate — skip LLM for trivial inputs
+    var deterministicReply = reasoningGate(text);
+    if (deterministicReply) {
+      hideTyping();
+      addAI(deterministicReply);
+      pushConvo('user', text);
+      pushConvo('assistant', deterministicReply);
+      if (!getCurrentSessionId()) set('currentSession', 'chat_' + Date.now());
+      saveCurrentMessages();
+      return;
+    }
+    // Prefetch only what the message actually needs, inject compactly
     var ghContext = await prefetchGitHub(text);
-    var msgToSend = ghContext ? text + '\n\n---\n' + ghContext + '\n---\nUse the above live data to answer accurately.' : text;
+    var msgToSend = ghContext ? text + ' [GitHub: ' + ghContext + ']' : text;
     pushConvo('user', text);
     var response = await callAI(msgToSend);
     hideTyping();
     var el = addAI('');
     await handleResponse(response, el);
     pushConvo('assistant', response);
-  } catch (e) {
+    // Ensure session exists
+    if (!getCurrentSessionId()) set('currentSession', 'chat_' + Date.now());
+    saveCurrentMessages();
+  } catch(e) {
     hideTyping();
-    if (e.isQuota) {
-      markGeminiLimited();
-      queueMessage(text);
-    } else {
-      addAI(e.friendlyHTML || ('❌ <strong>Error:</strong> ' + esc(e.message)));
-    }
+    if (e.isQuota) { markGeminiLimited(); queueMessage(text); }
+    else { addAI(e.friendlyHTML || ('❌ <strong>Error:</strong> ' + esc(e.message))); }
   }
 }
 
@@ -716,22 +1283,33 @@ async function sendMessage() {
   var btn = document.getElementById('sendBtn');
   btn.disabled = true;
   inp.value = ''; inp.style.height = 'auto';
-  try {
-    await sendMessageText(text);
-  } finally {
-    btn.disabled = false;
-    updateStatus();
-    inp.focus();
-  }
+  try { await sendMessageText(text); }
+  finally { btn.disabled = false; updateStatus(); inp.focus(); }
 }
 
 // ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
 window.onload = function() {
+  // Start fresh session if none active
+  if (!getCurrentSessionId()) {
+    set('currentSession', 'chat_' + Date.now());
+  }
+  // Restore mode
+  var savedMode = get('mode', 'strategic');
+  setMode(savedMode);
   updateStatus();
-  if (!get('setupDone')) setTimeout(openSetup, 600);
-  // Restore rate limit countdown + queue if quota was hit before page refresh
+  renderChatList();
+  // Load current session if it has messages
+  var id = getCurrentSessionId();
+  if (id) {
+    var session = loadSession(id);
+    if (session && session.messages && session.messages.length) {
+      set('conversation', session.messages);
+      renderMessages(session.messages);
+    }
+  }
+  if (!get('setupDone')) setTimeout(openSettings, 700);
   if (isGeminiLimited()) startCountdown();
 };
 </script>
