@@ -508,37 +508,126 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
           <button class="clear-btn" onclick="clearMemory()">🗑 Clear memory</button>
           <button class="clear-btn" onclick="clearAllChats()">🗑 Clear all chats</button>
         </div>
+        <div class="btn-row" style="margin-top:8px;">
+          <button class="clear-btn" style="width:100%;border-color:rgba(124,106,247,0.5);color:var(--accent);" onclick="closeSettings();doLogout()">🔒 Sign out</button>
+        </div>
       </div>
       <button class="save-btn" onclick="saveSettings()">Save & close →</button>
     </div>
   </div>
 
 
-  <!-- LOGIN SCREEN -->
+
+
+  <!-- LOGIN SCREEN (shown when not authenticated) -->
   <div class="login-screen" id="loginScreen">
     <div class="login-card">
-      <div class="login-logo">🤖</div>
+      <div class="login-logo">&#x1F916;</div>
       <div class="login-title">Agent Access</div>
-      <div class="login-sub">Private AI workspace. Authorized users only.</div>
-
+      <div class="login-sub">Private workspace. Authorized personnel only.</div>
       <div class="login-error" id="loginError"></div>
-
       <div class="login-field">
         <label>Username</label>
-        <input class="login-input" type="text" id="loginUser" placeholder="Enter username" autocomplete="username" onkeydown="loginKey(event)"/>
+        <input class="login-input" type="text" id="loginUser"
+          placeholder="Enter username" autocomplete="username"
+          onkeydown="loginKey(event)" />
       </div>
       <div class="login-field">
         <label>Password</label>
-        <input class="login-input" type="password" id="loginPass" placeholder="Enter password" autocomplete="current-password" onkeydown="loginKey(event)"/>
+        <input class="login-input" type="password" id="loginPass"
+          placeholder="Enter password" autocomplete="current-password"
+          onkeydown="loginKey(event)" />
       </div>
-      <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign in →</button>
-
-      <div class="login-footer">Eritage ENT Care · Private Agent</div>
+      <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign in</button>
+      <div class="login-footer">Eritage ENT Care &middot; Private Agent</div>
     </div>
   </div>
 
 </div>
+
 <script>
+// ═══════════════════════════════════════════════════════
+// SESSION TOKEN — stored in sessionStorage (cleared on tab close)
+// ═══════════════════════════════════════════════════════
+function getSessionToken()   { return sessionStorage.getItem('agent_tok') || ''; }
+function setSessionToken(t)  { sessionStorage.setItem('agent_tok', t); }
+function clearSessionToken() { sessionStorage.removeItem('agent_tok'); }
+function isLoggedIn()        { return !!getSessionToken(); }
+
+function showLoginScreen() {
+  document.getElementById('loginScreen').classList.remove('hidden');
+  document.getElementById('loginUser').value = '';
+  document.getElementById('loginPass').value = '';
+  document.getElementById('loginError').classList.remove('show');
+  document.getElementById('loginBtn').disabled = false;
+  document.getElementById('loginBtn').textContent = 'Sign in';
+}
+
+function hideLoginScreen() {
+  document.getElementById('loginScreen').classList.add('hidden');
+}
+
+function handleSessionExpiry() {
+  clearSessionToken();
+  showLoginScreen();
+  document.getElementById('loginError').textContent = 'Session expired. Please sign in again.';
+  document.getElementById('loginError').classList.add('show');
+}
+
+function loginKey(e) {
+  if (e.key === 'Enter') doLogin();
+}
+
+async function doLogin() {
+  var user  = document.getElementById('loginUser').value.trim();
+  var pass  = document.getElementById('loginPass').value;
+  var errEl = document.getElementById('loginError');
+  var btn   = document.getElementById('loginBtn');
+
+  errEl.classList.remove('show');
+
+  if (!user || !pass) {
+    errEl.textContent = 'Please enter both username and password.';
+    errEl.classList.add('show');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Signing in...';
+
+  try {
+    var r = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: user, password: pass }),
+    });
+    var text = await r.text();
+    var data;
+    try { data = text ? JSON.parse(text) : {}; } catch(e) { data = {}; }
+
+    if (r.ok && data.token) {
+      setSessionToken(data.token);
+      hideLoginScreen();
+      initApp();
+    } else {
+      errEl.textContent = data.error || 'Login failed. Check your credentials.';
+      errEl.classList.add('show');
+      btn.disabled = false;
+      btn.textContent = 'Sign in';
+    }
+  } catch(e) {
+    errEl.textContent = 'Network error. Is the server running?';
+    errEl.classList.add('show');
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+}
+
+function doLogout() {
+  clearSessionToken();
+  showLoginScreen();
+}
+
 // ═══════════════════════════════════════════════════════
 // STORAGE
 // ═══════════════════════════════════════════════════════
@@ -1051,7 +1140,7 @@ async function callAI(userMsg) {
   console.log('[tokens] input est:', est, '| session total:', totalTokensUsed);
   var r = await fetch('/api/ai', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
     body: JSON.stringify({ provider: provider, systemPrompt: sys, history: history, userMessage: userMsg }),
   });
   var text = await r.text();
@@ -1063,7 +1152,8 @@ async function callAI(userMsg) {
     var low = msg.toLowerCase();
     var err = new Error(msg);
     if (r.status === 429 || low.includes('quota') || low.includes('exhausted') || low.includes('resource_exhausted')) { err.isQuota = true; throw err; }
-    if (r.status === 401 || r.status === 403) { err.friendlyHTML = '&#128273; <strong>API key rejected.</strong> Check GEMINI_API_KEY in Vercel.'; throw err; }
+    if (r.status === 401) { handleSessionExpiry(); err.friendlyHTML = '&#x1F512; <strong>Session expired.</strong> Please log in again.'; throw err; }
+    if (r.status === 403) { err.friendlyHTML = '&#128273; <strong>API key rejected.</strong> Check GEMINI_API_KEY in Vercel.'; throw err; }
     err.friendlyHTML = '&#10060; <strong>Error:</strong> ' + esc(msg);
     throw err;
   }
@@ -1077,13 +1167,15 @@ async function callAI(userMsg) {
 // ═══════════════════════════════════════════════════════
 async function githubAPI(payload) {
   var r = await fetch('/api/github', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
     body: JSON.stringify(payload),
   });
   var text = await r.text();
   var data;
   try { data = text ? JSON.parse(text) : {}; }
   catch(e) { throw new Error('GitHub API invalid response: ' + text.slice(0,120)); }
+  if (r.status === 401) { handleSessionExpiry(); throw new Error('Session expired — please log in again.'); }
   if (!r.ok) throw new Error(data.error || 'GitHub HTTP ' + r.status);
   return data;
 }
@@ -1290,17 +1382,15 @@ async function sendMessage() {
 // ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
-window.onload = function() {
+function initApp() {
   // Start fresh session if none active
   if (!getCurrentSessionId()) {
     set('currentSession', 'chat_' + Date.now());
   }
-  // Restore mode
   var savedMode = get('mode', 'strategic');
   setMode(savedMode);
   updateStatus();
   renderChatList();
-  // Load current session if it has messages
   var id = getCurrentSessionId();
   if (id) {
     var session = loadSession(id);
@@ -1311,6 +1401,16 @@ window.onload = function() {
   }
   if (!get('setupDone')) setTimeout(openSettings, 700);
   if (isGeminiLimited()) startCountdown();
+  document.getElementById('userInput').focus();
+}
+
+window.onload = function() {
+  if (isLoggedIn()) {
+    hideLoginScreen();
+    initApp();
+  } else {
+    showLoginScreen();
+  }
 };
 </script>
 </body>
