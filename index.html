@@ -336,7 +336,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .field-input::placeholder{color:var(--text3);}
 textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
 .settings-section{margin-bottom:20px;}
-.repo-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
 .secure-note{
   display:flex;align-items:center;gap:8px;
   background:rgba(34,197,94,0.07);border:1px solid rgba(34,197,94,0.2);
@@ -525,10 +525,25 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
         </select>
       </div>
       <div class="settings-section">
-        <label class="field-label">Primary GitHub Repo</label>
-        <div class="repo-row">
-          <input class="field-input" id="s_repo1" placeholder="owner/repo"/>
-          <input class="field-input" id="s_repo1_name" placeholder="Nickname"/>
+        <label class="field-label" style="display:flex;align-items:center;justify-content:space-between;">
+          Active GitHub Repo
+          <span style="background:rgba(124,106,247,0.12);color:var(--accent);font-size:9px;padding:2px 8px;border-radius:20px;letter-spacing:0.06em;">AUTO-DETECTED</span>
+        </label>
+        <div id="activeRepoDisplay" style="
+          background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+          padding:11px 14px;font-size:13px;color:var(--text2);
+          display:flex;align-items:center;justify-content:space-between;gap:10px;
+        ">
+          <span id="activeRepoName" style="font-family:'JetBrains Mono',monospace;font-size:12px;">None detected yet</span>
+          <button onclick="clearActiveRepo()" style="
+            background:none;border:1px solid var(--border2);border-radius:6px;
+            color:var(--text3);font-size:10px;padding:3px 9px;cursor:pointer;
+            font-family:'Inter',sans-serif;white-space:nowrap;
+          ">&#x2715; Clear</button>
+        </div>
+        <div style="font-size:10.5px;color:var(--text3);margin-top:6px;line-height:1.6;">
+          Just mention a repo by name in conversation and the agent switches automatically.
+          e.g. <em style="color:var(--text2)">"fix the bug in my agent repo"</em>
         </div>
       </div>
       <div class="settings-section">
@@ -746,13 +761,15 @@ function logInteraction(userMsg, aiReply, feedback) {
   }).catch(function(e) { console.warn('[learn] log failed:', e.message); });
 }
 
-// Run analysis if it hasn't run today (fire-and-forget, updates KV)
+// Run analysis daily + weekly digest on Mondays (both fire-and-forget)
 function maybeRunDailyAnalysis() {
-  var now       = Date.now();
-  var dayMs     = 24 * 60 * 60 * 1000;
-  var lastRun   = get('lastLearnRun', 0);
+  var now     = Date.now();
+  var dayMs   = 24 * 60 * 60 * 1000;
+  var lastRun = get('lastLearnRun', 0);
   if (now - lastRun < dayMs) return; // already ran today
   set('lastLearnRun', now);
+
+  // Daily analysis
   fetch('/api/learn', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
@@ -765,6 +782,54 @@ function maybeRunDailyAnalysis() {
       }
     })
     .catch(function(e) { console.warn('[learn] analysis failed:', e.message); });
+
+  // Weekly digest — only on Mondays (day 1) or if never generated
+  var today        = new Date().getDay(); // 0=Sun, 1=Mon
+  var lastDigest   = get('lastWeeklyDigest', 0);
+  var weekMs       = 7 * dayMs;
+  var isMonday     = today === 1;
+  var neverDone    = lastDigest === 0;
+  var overdue      = (now - lastDigest) > weekMs;
+
+  if (isMonday || neverDone || overdue) {
+    set('lastWeeklyDigest', now);
+    fetch('/api/learn', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
+      body:    JSON.stringify({ action: 'digest' }),
+    }).then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.digest && data.digest.length > 50) {
+          // Store digest for display and inject into next session
+          set('weeklyDigest', data.digest);
+          set('weeklyDigestDate', new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' }));
+          console.log('[learn] weekly digest generated');
+          // Show digest in chat if this is Monday morning
+          if (isMonday) showWeeklyDigestInChat(data.digest);
+        }
+      })
+      .catch(function(e) { console.warn('[learn] digest failed:', e.message); });
+  }
+}
+
+// Show weekly digest as the first message on Monday
+function showWeeklyDigestInChat(digest) {
+  var msgs = document.getElementById('messages');
+  // Only show if chat is currently empty (fresh session)
+  var existing = msgs.querySelectorAll('.msg-wrap');
+  if (existing.length > 0) return;
+  var w = document.getElementById('welcomeScreen');
+  if (w) w.remove();
+  var d = document.createElement('div');
+  d.className = 'msg-wrap ai';
+  d.style.animation = 'none';
+  d.innerHTML = '<div class="msg-avatar">&#x1F916;</div>'
+    + '<div class="bubble">'
+    + '<div style="font-size:11px;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em;">&#x1F4C6; Weekly digest — ' + (get('weeklyDigestDate','') || 'this week') + '</div>'
+    + fmt(digest)
+    + '</div>';
+  msgs.appendChild(d);
+  scrollBot();
 }
 
 // Score the previous AI reply based on the user's next message (implicit feedback)
@@ -933,18 +998,34 @@ function detectMode(text) {
 function openSettings() {
   document.getElementById('s_name').value       = get('userName', '');
   document.getElementById('s_brain').value      = get('brain', 'gemini');
-  document.getElementById('s_repo1').value      = get('repo1', '');
-  document.getElementById('s_repo1_name').value = get('repo1name', '');
+  // Show current active repo (auto-detected)
+  var activeRepoEl = document.getElementById('activeRepoName');
+  if (activeRepoEl) {
+    var r1 = get('repo1', '');
+    activeRepoEl.textContent = r1 || 'None detected yet';
+    activeRepoEl.style.color = r1 ? 'var(--text)' : 'var(--text3)';
+  }
   document.getElementById('s_about').value      = get('about', '');
   document.getElementById('s_prefs').value      = get('prefs', '');
   var facts = get('learnedFacts', []);
   document.getElementById('memoryBox').textContent = facts.length ? facts.join('\n') : 'Nothing saved yet.';
 
-  // Show adaptive profile summary if available
+  // Show adaptive profile in settings
   var profBox = document.getElementById('profileBox');
   if (profBox) {
-    if (_adaptiveProfile && _adaptiveProfile.observations && _adaptiveProfile.observations.length) {
-      profBox.textContent = _adaptiveProfile.observations.join('\n');
+    if (_adaptiveProfile) {
+      var lines = [];
+      if (_adaptiveProfile.totalInteractions)
+        lines.push('Conversations tracked: ' + _adaptiveProfile.totalInteractions);
+      if (_adaptiveProfile.style && _adaptiveProfile.style.avgReplyWordCount)
+        lines.push('Your preferred reply length: ~' + _adaptiveProfile.style.avgReplyWordCount + ' words');
+      if (_adaptiveProfile.recurringTopics && _adaptiveProfile.recurringTopics.length)
+        lines.push('Top topics: ' + _adaptiveProfile.recurringTopics.slice(0,4).map(function(t){return t.topic.replace(/_/g,' ');}).join(', '));
+      if (_adaptiveProfile.observations && _adaptiveProfile.observations.length)
+        _adaptiveProfile.observations.forEach(function(o){ lines.push(o); });
+      var digest = get('weeklyDigest','');
+      if (digest) lines.push('\n— Last weekly digest —\n' + digest.slice(0,300) + (digest.length > 300 ? '...' : ''));
+      profBox.textContent = lines.length ? lines.join('\n') : 'Not enough interactions yet. Builds over time.';
     } else {
       profBox.textContent = 'Not enough interactions yet. Builds over time.';
     }
@@ -957,8 +1038,7 @@ function closeSettings() { document.getElementById('settingsOverlay').classList.
 function saveSettings() {
   set('userName',  document.getElementById('s_name').value.trim());
   set('brain',     document.getElementById('s_brain').value);
-  set('repo1',     document.getElementById('s_repo1').value.trim());
-  set('repo1name', document.getElementById('s_repo1_name').value.trim());
+  // repo1 / repo1name are managed automatically by auto-detect — not saved from settings
   set('about',     document.getElementById('s_about').value.trim());
   set('prefs',     document.getElementById('s_prefs').value.trim());
   set('setupDone', true);
@@ -1001,11 +1081,24 @@ function closeSidebar() {
 // ═══════════════════════════════════════════════════════
 // UI HELPERS
 // ═══════════════════════════════════════════════════════
+function clearActiveRepo() {
+  set('repo1', '');
+  set('repo1name', '');
+  _repoList = null; // force fresh fetch next time
+  Object.keys(_ghCache).forEach(function(k) { delete _ghCache[k]; });
+  var el = document.getElementById('activeRepoName');
+  if (el) { el.textContent = 'None detected yet'; el.style.color = 'var(--text3)'; }
+  updateStatus();
+  addAI('Active repo cleared. Just mention a repo by name in conversation and I will switch to it automatically.');
+  closeSettings();
+}
+
 function updateStatus() {
   var n  = get('userName', '');
   var rn = get('repo1name', '');
+  var activeRepo = get('repo1name', '') || (get('repo1','').split('/')[1] || '');
   document.getElementById('statusDot').className    = 'status-dot ready';
-  document.getElementById('statusText').textContent = 'Ready' + (rn ? ' · ' + rn : '') + (n ? ' · ' + n : '');
+  document.getElementById('statusText').textContent = 'Ready' + (activeRepo ? ' · ' + activeRepo : '') + (n ? ' · ' + n : '');
   if (n) {
     document.getElementById('agentTitle').textContent   = n + "'s Agent";
     document.getElementById('welcomeTitle').textContent = 'Good to see you, ' + n;
@@ -1113,7 +1206,7 @@ function sysPrompt() {
   // Inject adaptive profile if available
   var adaptiveCtx = _adaptiveProfile ? buildAdaptiveContext(_adaptiveProfile) : '';
 
-  var base = 'Agent for ' + name + ' (' + dateStr + '). Repo: ' + (repo1 || 'not set') + '. '
+  var base = 'Agent for ' + name + ' (' + dateStr + '). Active repo: ' + (repo1 || 'none — will auto-detect from conversation') + '. '
     + aboutLine + ' ' + prefsLine + factLine
     + (adaptiveCtx ? ' ' + adaptiveCtx : '');
 
@@ -1205,7 +1298,67 @@ function reasoningGate(text) {
   }
   if (/^what (mode|modes?)/.test(t))
     return currentMode === 'code' ? 'Code Mode — strict execution.' : 'Strategic Mode — planning and thinking.';
+  // "what do you know about me" — fetch readable profile summary from /api/learn
+  if (/what.*(know|learned|learn|remember|know about|figured out|noticed|observed).*(me|my|about me|about you)/i.test(t)
+      || /what.*my.*profile/i.test(t)
+      || /tell me.*about (myself|me|my habits|my style)/i.test(t)
+      || /show.*my.*profile/i.test(t)) {
+    fetchAndShowProfileSummary();
+    return '__ASYNC__'; // signal that we handled it asynchronously
+  }
+  // "show weekly digest" or "what did we do this week"
+  if (/weekly digest|this week.*(summary|recap|review)|what.*we.*work.*this week|what.*i.*work.*this week/i.test(t)) {
+    fetchAndShowDigest();
+    return '__ASYNC__';
+  }
   return null;
+}
+
+// Fetch plain-language profile summary and display in chat
+async function fetchAndShowProfileSummary() {
+  var el = addAI('');
+  var bubble = el.querySelector('.bubble');
+  showWhisper('Reflecting on our conversations...');
+  try {
+    var r = await fetch('/api/learn?action=summary', {
+      headers: { 'X-Agent-Token': getSessionToken() }
+    });
+    var data = await r.json();
+    hideWhisper();
+    if (data.summary) {
+      bubble.innerHTML = fmt(data.summary);
+    } else {
+      bubble.innerHTML = 'I have not gathered enough data yet. Keep chatting and I will build a picture of how you like to work.';
+    }
+  } catch(e) {
+    hideWhisper();
+    bubble.innerHTML = 'Could not retrieve profile summary right now.';
+  }
+  scrollBot();
+}
+
+// Fetch and show the weekly digest in chat
+async function fetchAndShowDigest() {
+  var el     = addAI('');
+  var bubble = el.querySelector('.bubble');
+  showWhisper('Preparing weekly digest...');
+  try {
+    var r = await fetch('/api/learn?action=digest', {
+      headers: { 'X-Agent-Token': getSessionToken() }
+    });
+    var data = await r.json();
+    hideWhisper();
+    var dateLabel = get('weeklyDigestDate', '') || new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' });
+    if (data.digest) {
+      bubble.innerHTML = '<div style="font-size:11px;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em;">&#x1F4C6; Weekly digest — ' + dateLabel + '</div>' + fmt(data.digest);
+    } else {
+      bubble.innerHTML = 'Not enough interaction data yet for a weekly digest. Come back after a few more sessions.';
+    }
+  } catch(e) {
+    hideWhisper();
+    bubble.innerHTML = 'Could not retrieve digest right now.';
+  }
+  scrollBot();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1317,12 +1470,14 @@ async function githubAPI(payload) {
 }
 
 // ═══════════════════════════════════════════════════════
-// GITHUB PREFETCH — cached, surgical
+// ═══════════════════════════════════════════════════════
+// GITHUB — auto-detect repo + cached prefetch
 // ═══════════════════════════════════════════════════════
 var REPO_RE   = /repo|repositor|github|my projects?|my sites?|what.*(have|own)|how many/i;
 var COMMIT_RE = /commit|commit history|recent changes|what changed|last (push|update)/i;
 var FILE_RE   = /(?:read|show|open|view|get|fetch)\s.{1,60}\.(html|css|js|md|json|txt|py)/i;
 var _ghCache  = {};
+var _repoList = null; // cached full repo list for the session
 
 async function cachedGithubAPI(payload) {
   var key = JSON.stringify(payload);
@@ -1332,27 +1487,132 @@ async function cachedGithubAPI(payload) {
   return result;
 }
 
+// ── Fetch + cache all repos once per session ─────────────────────────────────
+async function ensureRepoList() {
+  if (_repoList) return _repoList;
+  var data = await cachedGithubAPI({ action: 'listRepos' });
+  _repoList = data.repos || [];
+  return _repoList;
+}
+
+// ── Score how well a repo name matches what the user said ────────────────────
+// Returns 0–100. Higher = better match.
+function scoreRepoMatch(repoFullName, text) {
+  var name  = repoFullName.split('/')[1] || repoFullName; // drop owner prefix
+  var lname = name.toLowerCase();
+  var ltext = text.toLowerCase();
+  var score = 0;
+
+  // Exact repo name mentioned
+  if (ltext.includes(lname)) return 100;
+
+  // Partial word matches — split repo name on hyphens/underscores
+  var parts = lname.split(/[-_]/);
+  parts.forEach(function(part) {
+    if (part.length > 2 && ltext.includes(part)) score += 30;
+  });
+
+  // Keyword hints in the user message
+  var hints = {
+    'agent':   ['agent', 'ai', 'bot', 'assistant', 'claude'],
+    'website': ['website', 'site', 'web', 'eritage', 'ent', 'clinic', 'eritageentcare'],
+    'api':     ['api', 'backend', 'server', 'endpoint'],
+    'app':     ['app', 'application', 'mobile', 'flutter'],
+  };
+  Object.keys(hints).forEach(function(repoHint) {
+    if (lname.includes(repoHint)) {
+      hints[repoHint].forEach(function(word) {
+        if (ltext.includes(word)) score += 25;
+      });
+    }
+  });
+
+  return Math.min(score, 99); // 100 reserved for exact match
+}
+
+// ── Auto-detect which repo the user is talking about ─────────────────────────
+// Returns the matched repo full name, or null if no strong match.
+// If a match is found and it differs from the current active repo, updates it
+// and returns a notice string to inject into context.
+async function autoDetectRepo(text) {
+  // Only attempt detection when the message is code-related
+  var codeSignals = /\b(repo|github|commit|deploy|push|file|code|fix|build|branch|project)\b/i;
+  if (!codeSignals.test(text)) return null;
+
+  showWhisper('Identifying repo...');
+  var repos = await ensureRepoList();
+  if (!repos.length) return null;
+
+  // Score every repo against the user's message
+  var scored = repos.map(function(r) {
+    return { repo: r, score: scoreRepoMatch(r.name, text) };
+  }).filter(function(s) { return s.score > 0; })
+    .sort(function(a, b) { return b.score - a.score; });
+
+  if (!scored.length) return null;
+
+  var best      = scored[0];
+  var threshold = 25; // minimum confidence to auto-switch
+
+  if (best.score < threshold) return null;
+
+  var currentRepo = get('repo1', '');
+  var detectedRepo = best.repo.name; // full owner/repo
+
+  if (detectedRepo === currentRepo) return null; // already set — no change needed
+
+  // Switch active repo
+  var shortName = detectedRepo.split('/')[1] || detectedRepo;
+  set('repo1',     detectedRepo);
+  set('repo1name', shortName);
+  updateStatus();
+
+  // Clear file/commit cache entries for old repo so fresh data is fetched
+  Object.keys(_ghCache).forEach(function(k) {
+    if (k.includes(currentRepo)) delete _ghCache[k];
+  });
+
+  // Show a small non-intrusive notice in the chat
+  var noticeEl = document.createElement('div');
+  noticeEl.style.cssText = 'width:100%;max-width:760px;margin:0 auto;padding:4px 24px 4px 72px;font-size:11.5px;color:var(--text3);';
+  noticeEl.innerHTML = '&#x1F4C2; Switched to <strong style="color:var(--text2)">' + esc(detectedRepo) + '</strong>';
+  document.getElementById('messages').appendChild(noticeEl);
+  scrollBot();
+
+  // Return a context note for the AI
+  return 'ACTIVE REPO: ' + detectedRepo + ' (auto-detected).';
+}
+
+// ── Main prefetch — auto-detect + context injection ──────────────────────────
 async function prefetchGitHub(text) {
   try {
+    // Listing all repos
     if (REPO_RE.test(text)) {
       showWhisper('Checking your repos...');
-      var data = await cachedGithubAPI({ action: 'listRepos' });
-      if (!data.repos || !data.repos.length) return 'REPOS: none found.';
-      var summary = data.repos.map(function(r) {
-        return r.name + (r.language ? ' [' + r.language + ']' : '') + (r.private ? ' (private)' : '');
+      var repos = await ensureRepoList();
+      if (!repos.length) return 'REPOS: none found.';
+      var summary = repos.map(function(r) {
+        var active = r.name === get('repo1', '') ? ' [ACTIVE]' : '';
+        return r.name + (r.language ? ' [' + r.language + ']' : '') + active;
       }).join(', ');
-      return 'REPOS (' + data.total + '): ' + summary;
+      return 'REPOS (' + repos.length + '): ' + summary;
     }
+
+    // Auto-detect repo before commit/file operations
+    var switchNotice = await autoDetectRepo(text);
+
     if (COMMIT_RE.test(text)) {
       var repo = get('repo1', '');
-      if (!repo) return null;
+      if (!repo) return switchNotice || 'No active repo set. Ask me to list your repos first.';
       showWhisper('Reading commit history...');
       var data2 = await cachedGithubAPI({ action: 'listCommits', repo: repo, limit: 5 });
-      if (!data2.commits || !data2.commits.length) return null;
-      return 'COMMITS ' + repo + ': ' + data2.commits.map(function(c) {
+      if (!data2.commits || !data2.commits.length) return switchNotice || null;
+      var commitSummary = 'COMMITS ' + repo + ': ' + data2.commits.map(function(c) {
         return '[' + c.sha + '] ' + (c.date ? c.date.slice(0, 10) : '') + ': ' + c.message.slice(0, 60);
       }).join(' | ');
+      return switchNotice ? switchNotice + ' ' + commitSummary : commitSummary;
     }
+
     if (FILE_RE.test(text)) {
       showWhisper('Fetching file...');
       var fileMatch = text.match(/[\w\-./]+\.(html|css|js|md|json|txt|py)/i);
@@ -1360,15 +1620,22 @@ async function prefetchGitHub(text) {
       if (fileMatch && repo2) {
         var data3 = await cachedGithubAPI({ action: 'getFile', repo: repo2, path: fileMatch[0] });
         if (data3.content) {
-          var capped = data3.content.length > 3000 ? data3.content.slice(0, 3000) + '...[truncated]' : data3.content;
-          return 'FILE ' + fileMatch[0] + ':\n' + capped;
+          var capped = data3.content.length > 3000
+            ? data3.content.slice(0, 3000) + '...[truncated]'
+            : data3.content;
+          var fileResult = 'FILE ' + fileMatch[0] + ':\n' + capped;
+          return switchNotice ? switchNotice + '\n' + fileResult : fileResult;
         }
       }
+      return switchNotice || null;
     }
+
+    // Code-related message but no specific pattern — still return switch notice if any
+    return switchNotice || null;
+
   } catch(e) {
     return 'GitHub prefetch failed: ' + e.message;
   }
-  return null;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1504,11 +1771,15 @@ async function sendMessageText(text) {
     // Reasoning gate — skip LLM for trivial inputs
     var deterministicReply = reasoningGate(text);
     if (deterministicReply) {
-      addAI(deterministicReply);
-      pushConvo('user', text);
-      pushConvo('assistant', deterministicReply);
-      if (!getCurrentSessionId()) set('currentSession', 'chat_' + Date.now());
-      saveCurrentMessages();
+      if (deterministicReply !== '__ASYNC__') {
+        // Sync reply — show directly
+        addAI(deterministicReply);
+        pushConvo('user', text);
+        pushConvo('assistant', deterministicReply);
+        if (!getCurrentSessionId()) set('currentSession', 'chat_' + Date.now());
+        saveCurrentMessages();
+      }
+      // __ASYNC__ means an async handler is already running (profile summary / digest)
       return;
     }
 
