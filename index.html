@@ -502,15 +502,22 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
         <textarea class="field-input" id="s_prefs" placeholder="Be direct. No jargon. Explain before acting..."></textarea>
       </div>
       <div class="settings-section">
-        <label class="field-label">Agent Memory</label>
+        <label class="field-label">Learned Facts (from conversation)</label>
         <div class="memory-box" id="memoryBox">Nothing saved yet.</div>
         <div class="btn-row">
-          <button class="clear-btn" onclick="clearMemory()">🗑 Clear memory</button>
-          <button class="clear-btn" onclick="clearAllChats()">🗑 Clear all chats</button>
+          <button class="clear-btn" onclick="clearMemory()">&#x1F5D1; Clear facts</button>
+          <button class="clear-btn" onclick="clearAllChats()">&#x1F5D1; Clear all chats</button>
         </div>
-        <div class="btn-row" style="margin-top:8px;">
-          <button class="clear-btn" style="width:100%;border-color:rgba(124,106,247,0.5);color:var(--accent);" onclick="closeSettings();doLogout()">🔒 Sign out</button>
-        </div>
+      </div>
+      <div class="settings-section">
+        <label class="field-label" style="display:flex;align-items:center;gap:6px;">
+          Adaptive Profile
+          <span style="background:rgba(124,106,247,0.15);color:var(--accent);font-size:9px;padding:2px 7px;border-radius:20px;letter-spacing:0.05em;">LIVE · UPDATES DAILY</span>
+        </label>
+        <div class="memory-box" id="profileBox" style="font-size:11px;line-height:1.8;">Not enough interactions yet. Builds over time.</div>
+      </div>
+      <div class="settings-section">
+        <button class="clear-btn" style="width:100%;border-color:rgba(124,106,247,0.4);color:var(--accent);" onclick="closeSettings();doLogout()">&#x1F512; Sign out</button>
       </div>
       <button class="save-btn" onclick="saveSettings()">Save & close →</button>
     </div>
@@ -556,11 +563,14 @@ function isLoggedIn()        { return !!getSessionToken(); }
 
 function showLoginScreen() {
   document.getElementById('loginScreen').classList.remove('hidden');
-  document.getElementById('loginUser').value = '';
-  document.getElementById('loginPass').value = '';
-  document.getElementById('loginError').classList.remove('show');
-  document.getElementById('loginBtn').disabled = false;
-  document.getElementById('loginBtn').textContent = 'Sign in';
+  var u = document.getElementById('loginUser');
+  var p = document.getElementById('loginPass');
+  if (u) u.value = '';
+  if (p) p.value = '';
+  var e = document.getElementById('loginError');
+  if (e) { e.classList.remove('show'); e.textContent = ''; }
+  var b = document.getElementById('loginBtn');
+  if (b) { b.disabled = false; b.textContent = 'Sign in'; }
 }
 
 function hideLoginScreen() {
@@ -570,13 +580,11 @@ function hideLoginScreen() {
 function handleSessionExpiry() {
   clearSessionToken();
   showLoginScreen();
-  document.getElementById('loginError').textContent = 'Session expired. Please sign in again.';
-  document.getElementById('loginError').classList.add('show');
+  var e = document.getElementById('loginError');
+  if (e) { e.textContent = 'Session expired. Please sign in again.'; e.classList.add('show'); }
 }
 
-function loginKey(e) {
-  if (e.key === 'Enter') doLogin();
-}
+function loginKey(e) { if (e.key === 'Enter') doLogin(); }
 
 async function doLogin() {
   var user  = document.getElementById('loginUser').value.trim();
@@ -585,26 +593,18 @@ async function doLogin() {
   var btn   = document.getElementById('loginBtn');
 
   errEl.classList.remove('show');
-
   if (!user || !pass) {
     errEl.textContent = 'Please enter both username and password.';
     errEl.classList.add('show');
     return;
   }
-
   btn.disabled = true;
   btn.textContent = 'Signing in...';
-
   try {
-    var r = await fetch('/api/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: user, password: pass }),
-    });
+    var r    = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username: user, password: pass }) });
     var text = await r.text();
     var data;
-    try { data = text ? JSON.parse(text) : {}; } catch(e) { data = {}; }
-
+    try { data = text ? JSON.parse(text) : {}; } catch(ex) { data = {}; }
     if (r.ok && data.token) {
       setSessionToken(data.token);
       hideLoginScreen();
@@ -615,7 +615,7 @@ async function doLogin() {
       btn.disabled = false;
       btn.textContent = 'Sign in';
     }
-  } catch(e) {
+  } catch(ex) {
     errEl.textContent = 'Network error. Is the server running?';
     errEl.classList.add('show');
     btn.disabled = false;
@@ -629,16 +629,24 @@ function doLogout() {
 }
 
 // ═══════════════════════════════════════════════════════
-// STORAGE
+// LOCAL STORAGE
 // ═══════════════════════════════════════════════════════
-const MEM = 'aiagent_v4';
-function mem()       { try { return JSON.parse(localStorage.getItem(MEM)||'{}'); } catch { return {}; } }
-function saveMem(d)  { localStorage.setItem(MEM, JSON.stringify(d)); }
-function get(k, def) { const v = mem()[k]; return (v !== undefined && v !== null) ? v : (def !== undefined ? def : null); }
-function set(k, v)   { const m = mem(); m[k] = v; saveMem(m); }
+var MEM_KEY = 'aiagent_v4';
+function mem()       { try { return JSON.parse(localStorage.getItem(MEM_KEY) || '{}'); } catch(e) { return {}; } }
+function saveMem(d)  { localStorage.setItem(MEM_KEY, JSON.stringify(d)); }
+function get(k, def) { var v = mem()[k]; return (v !== undefined && v !== null) ? v : (def !== undefined ? def : null); }
+function set(k, v)   { var m = mem(); m[k] = v; saveMem(m); }
 
-// ── TOKEN ESTIMATION (rough: 1 token ≈ 4 chars) ─────────────────────────────
+// ═══════════════════════════════════════════════════════
+// TOKEN ESTIMATION
+// ═══════════════════════════════════════════════════════
 function estimateTokens(str) { return Math.ceil(((str) || '').length / 4); }
+
+// ═══════════════════════════════════════════════════════
+// CONVERSATION HISTORY — with compact summarisation
+// ═══════════════════════════════════════════════════════
+var HISTORY_TOKEN_BUDGET = 3000;
+var SUMMARY_KEEP_RECENT  = 6;
 
 function pushConvo(role, content) {
   var h = get('conversation', []);
@@ -648,70 +656,121 @@ function pushConvo(role, content) {
   set('conversation', h);
 }
 
-var HISTORY_TOKEN_BUDGET = 3000;
-var SUMMARY_KEEP_RECENT  = 6;
-
 function getCompactHistory() {
-  var full = get('conversation', []);
+  var full   = get('conversation', []);
   if (!full.length) return [];
   var recent = full.slice(-SUMMARY_KEEP_RECENT);
   var older  = full.slice(0, -SUMMARY_KEEP_RECENT);
   var recentTokens = recent.reduce(function(t, m) { return t + estimateTokens(m.content); }, 0);
   if (recentTokens >= HISTORY_TOKEN_BUDGET || !older.length) return recent;
-  var remainingBudget = HISTORY_TOKEN_BUDGET - recentTokens;
-  var summaryParts = [];
-  var summaryTokens = 0;
+  var remaining = HISTORY_TOKEN_BUDGET - recentTokens;
+  var parts = [], used = 0;
   for (var i = older.length - 1; i >= 0; i--) {
-    var m     = older[i];
-    var label = m.role === 'user' ? 'U' : 'A';
-    var line  = label + ': ' + m.content.slice(0, 100).split('\n').join(' ');
-    var t     = estimateTokens(line);
-    if (summaryTokens + t > remainingBudget) break;
-    summaryParts.unshift(line);
-    summaryTokens += t;
+    var line = (older[i].role === 'user' ? 'U' : 'A') + ': ' + older[i].content.slice(0, 100).split('\n').join(' ');
+    var t    = estimateTokens(line);
+    if (used + t > remaining) break;
+    parts.unshift(line);
+    used += t;
   }
-  if (!summaryParts.length) return recent;
-  var summaryMsg = { role: 'user', content: '[PRIOR CONTEXT] ' + summaryParts.join(' | ') };
-  return [summaryMsg].concat(recent);
+  if (!parts.length) return recent;
+  return [{ role: 'user', content: '[PRIOR CONTEXT] ' + parts.join(' | ') }].concat(recent);
 }
 
-function getCompactHistory() {
-  const full = get('conversation', []);
-  if (!full.length) return [];
+// ═══════════════════════════════════════════════════════
+// ADAPTIVE LEARNING — Vercel KV via /api/learn
+// ═══════════════════════════════════════════════════════
+var _adaptiveProfile  = null;   // cached profile from KV
+var _lastLearnCheck   = 0;      // timestamp of last learn run
+var _pendingFeedback  = null;   // { userMsg, aiReply } waiting for next user turn to score
 
-  // Always keep last SUMMARY_KEEP_RECENT turns verbatim
-  const recent  = full.slice(-SUMMARY_KEEP_RECENT);
-  const older   = full.slice(0, -SUMMARY_KEEP_RECENT);
+// Fetch adaptive profile from KV (once per session)
+async function fetchAdaptiveProfile() {
+  if (_adaptiveProfile) return _adaptiveProfile;
+  try {
+    var r = await fetch('/api/learn', { method: 'GET', headers: { 'X-Agent-Token': getSessionToken() } });
+    if (!r.ok) return null;
+    var data = await r.json();
+    _adaptiveProfile = data.profile || null;
+    _lastLearnCheck  = data.lastLearn || 0;
+    return _adaptiveProfile;
+  } catch(e) {
+    console.warn('[learn] fetch profile failed:', e.message);
+    return null;
+  }
+}
 
-  // Count tokens in recent turns
-  const recentTokens = recent.reduce((t, m) => t + estimateTokens(m.content), 0);
-  if (recentTokens >= HISTORY_TOKEN_BUDGET || !older.length) return recent;
+// Log one interaction exchange to KV (fire-and-forget)
+function logInteraction(userMsg, aiReply, feedback) {
+  fetch('/api/learn', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
+    body:    JSON.stringify({ action: 'log', userMsg: userMsg, aiReply: aiReply, feedback: feedback || 0 }),
+  }).catch(function(e) { console.warn('[learn] log failed:', e.message); });
+}
 
-  // Budget remaining for older context
-  const remainingBudget = HISTORY_TOKEN_BUDGET - recentTokens;
+// Run analysis if it hasn't run today (fire-and-forget, updates KV)
+function maybeRunDailyAnalysis() {
+  var now       = Date.now();
+  var dayMs     = 24 * 60 * 60 * 1000;
+  var lastRun   = get('lastLearnRun', 0);
+  if (now - lastRun < dayMs) return; // already ran today
+  set('lastLearnRun', now);
+  fetch('/api/learn', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
+    body:    JSON.stringify({ action: 'analyse' }),
+  }).then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.profile) {
+        _adaptiveProfile = data.profile;
+        console.log('[learn] daily analysis done. Interactions:', data.interactionCount);
+      }
+    })
+    .catch(function(e) { console.warn('[learn] analysis failed:', e.message); });
+}
 
-  // Build compressed summary of older turns (include only if fits in budget)
-  const summaryLines = [];
-  let summaryTokens  = 0;
-  for (let i = older.length - 1; i >= 0; i--) {
-    const m     = older[i];
-    const label = m.role === 'user' ? 'U' : 'A';
-    // Compress each turn to max 120 chars for summary
-    const line  = label + ': ' + m.content.slice(0, 120).replace(/\n/g, ' ');
-    const t     = estimateTokens(line);
-    if (summaryTokens + t > remainingBudget) break;
-    summaryLines.unshift(line);
-    summaryTokens += t;
+// Score the previous AI reply based on the user's next message (implicit feedback)
+function scoreImplicitFeedback(userMsg) {
+  if (!_pendingFeedback) return;
+  var pos = /\b(perfect|exactly|great|brilliant|yes|correct|love it|spot on|awesome|do it|go ahead|confirmed|proceed|thanks|thank you)\b/i.test(userMsg);
+  var neg = /\b(no|wrong|not what i|that.s not|incorrect|stop|don.t|redo|again|rephrase|too long|too short|not helpful|useless|fix it)\b/i.test(userMsg);
+  var score = (pos && !neg) ? 1 : (neg && !pos) ? -1 : 0;
+  logInteraction(_pendingFeedback.userMsg, _pendingFeedback.aiReply, score);
+  _pendingFeedback = null;
+}
+
+// Build the adaptive context block injected into sysPrompt
+function buildAdaptiveContext(profile) {
+  if (!profile) return '';
+  var parts = [];
+
+  // Style preferences
+  if (profile.style) {
+    if (profile.style.prefersBrief === true)  parts.push('Prefers concise replies (under 120 words).');
+    if (profile.style.prefersBrief === false) parts.push('Engages well with detailed responses.');
+    if (profile.style.prefersBullets === false) parts.push('Dislikes bullet points — use prose.');
+    if (profile.style.prefersBullets === true)  parts.push('Responds well to bullet-point structure.');
   }
 
-  if (!summaryLines.length) return recent;
+  // Recurring topics
+  if (profile.recurringTopics && profile.recurringTopics.length) {
+    var topics = profile.recurringTopics.slice(0, 3).map(function(t) { return t.topic.replace(/_/g, ' '); }).join(', ');
+    parts.push('Most discussed topics lately: ' + topics + '.');
+  }
 
-  // Inject as a single system-style context message
-  const summaryMsg = {
-    role: 'user',
-    content: '[CONTEXT SUMMARY] ' + summaryLines.join(' | ')
-  };
-  return [summaryMsg, ...recent];
+  // Sentiment trend
+  if (typeof profile.recentSentiment === 'number') {
+    if (profile.recentSentiment > 0.4)  parts.push('Strong positive feedback recently — keep this style.');
+    if (profile.recentSentiment < -0.2) parts.push('Some friction detected — be more direct and concise.');
+  }
+
+  // Custom observations
+  if (profile.observations && profile.observations.length) {
+    profile.observations.forEach(function(o) { parts.push(o); });
+  }
+
+  if (!parts.length) return '';
+  return 'ADAPTIVE PROFILE: ' + parts.join(' ');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -721,22 +780,20 @@ function getSessions()          { return get('sessions', []); }
 function getCurrentSessionId()  { return get('currentSession', null); }
 
 function saveSession(id, title, messages) {
-  const sessions = getSessions();
-  const idx = sessions.findIndex(s => s.id === id);
-  const obj = { id, title, messages, updatedAt: Date.now() };
+  var sessions = getSessions();
+  var idx      = sessions.findIndex(function(s) { return s.id === id; });
+  var obj      = { id: id, title: title, messages: messages, updatedAt: Date.now() };
   if (idx >= 0) sessions[idx] = obj; else sessions.unshift(obj);
-  // Keep max 40 sessions
   if (sessions.length > 40) sessions.splice(40);
   set('sessions', sessions);
 }
 
 function loadSession(id) {
-  const sessions = getSessions();
-  return sessions.find(s => s.id === id) || null;
+  return getSessions().find(function(s) { return s.id === id; }) || null;
 }
 
 function deleteSession(id) {
-  const sessions = getSessions().filter(s => s.id !== id);
+  var sessions = getSessions().filter(function(s) { return s.id !== id; });
   set('sessions', sessions);
   if (getCurrentSessionId() === id) {
     set('currentSession', null);
@@ -748,7 +805,7 @@ function deleteSession(id) {
 }
 
 function newChat() {
-  const id = 'chat_' + Date.now();
+  var id = 'chat_' + Date.now();
   set('currentSession', id);
   set('conversation', []);
   renderMessages([]);
@@ -759,7 +816,7 @@ function newChat() {
 }
 
 function switchToSession(id) {
-  const session = loadSession(id);
+  var session = loadSession(id);
   if (!session) return;
   set('currentSession', id);
   set('conversation', session.messages || []);
@@ -769,42 +826,41 @@ function switchToSession(id) {
 }
 
 function renderChatList() {
-  const list = document.getElementById('chatList');
-  const sessions = getSessions();
-  const currentId = getCurrentSessionId();
+  var list      = document.getElementById('chatList');
+  var sessions  = getSessions();
+  var currentId = getCurrentSessionId();
   if (!sessions.length) {
     list.innerHTML = '<div style="padding:12px 10px;font-size:11px;color:var(--text3)">No chats yet</div>';
     return;
   }
-  list.innerHTML = sessions.map(s => {
-    const active = s.id === currentId ? ' active' : '';
-    const title = esc(s.title || 'New chat');
-    return `<div class="chat-item${active}" onclick="switchToSession('${s.id}')">
-      <span class="chat-item-icon">💬</span>
-      <span class="chat-item-title">${title}</span>
-      <button class="chat-item-del" onclick="event.stopPropagation();deleteSession('${s.id}')" title="Delete">✕</button>
-    </div>`;
+  list.innerHTML = sessions.map(function(s) {
+    var active = s.id === currentId ? ' active' : '';
+    var title  = esc(s.title || 'New chat');
+    return '<div class="chat-item' + active + '" onclick="switchToSession(\'' + s.id + '\')">'
+      + '<span class="chat-item-icon">&#x1F4AC;</span>'
+      + '<span class="chat-item-title">' + title + '</span>'
+      + '<button class="chat-item-del" onclick="event.stopPropagation();deleteSession(\'' + s.id + '\')" title="Delete">&#x2715;</button>'
+      + '</div>';
   }).join('');
 }
 
 function saveCurrentMessages() {
-  const id = getCurrentSessionId();
+  var id   = getCurrentSessionId();
   if (!id) return;
-  const conv = get('conversation', []);
+  var conv = get('conversation', []);
   if (!conv.length) return;
-  // Title = first user message truncated
-  const firstUser = conv.find(m => m.role === 'user');
-  const title = firstUser ? firstUser.content.slice(0, 45) + (firstUser.content.length > 45 ? '…' : '') : 'New chat';
+  var firstUser = conv.find(function(m) { return m.role === 'user'; });
+  var title     = firstUser ? firstUser.content.slice(0, 45) + (firstUser.content.length > 45 ? '...' : '') : 'New chat';
   saveSession(id, title, conv);
   renderChatList();
 }
 
 function renderMessages(messages) {
-  const container = document.getElementById('messages');
+  var container = document.getElementById('messages');
   container.innerHTML = '';
   if (!messages || !messages.length) { showWelcome(); return; }
-  messages.forEach(m => {
-    if (m.role === 'user') _addUser(m.content, false);
+  messages.forEach(function(m) {
+    if (m.role === 'user')      _addUser(m.content, false);
     else if (m.role === 'assistant') _addAI(m.content, false);
   });
   scrollBot();
@@ -813,33 +869,23 @@ function renderMessages(messages) {
 // ═══════════════════════════════════════════════════════
 // MODE
 // ═══════════════════════════════════════════════════════
-var currentMode = 'strategic'; // 'strategic' | 'code'
+var currentMode = 'strategic';
 
 function setMode(mode) {
   currentMode = mode;
   set('mode', mode);
   document.getElementById('btnStrategic').classList.toggle('active', mode === 'strategic');
   document.getElementById('btnCode').classList.toggle('active', mode === 'code');
-  const badge = document.getElementById('modeBadge');
-  const label = document.getElementById('modeLabel');
-  if (mode === 'code') {
-    badge.className = 'mode-badge code';
-    label.textContent = 'Code Mode';
-  } else {
-    badge.className = 'mode-badge strategic';
-    label.textContent = 'Strategic Mode';
-  }
+  var badge = document.getElementById('modeBadge');
+  var label = document.getElementById('modeLabel');
+  if (mode === 'code') { badge.className = 'mode-badge code'; label.textContent = 'Code Mode'; }
+  else                 { badge.className = 'mode-badge strategic'; label.textContent = 'Strategic Mode'; }
 }
 
 function detectMode(text) {
-  const codeSignals = /\b(code|github|repo|deploy|push|commit|file|function|bug|refactor|html|css|js|javascript|api|edit|update|fix|build|implement|create.*file|write.*code|show.*code)\b/i;
-  if (codeSignals.test(text) && currentMode !== 'code') {
-    setMode('code');
-    return true; // mode just switched
-  }
-  if (!codeSignals.test(text) && currentMode !== 'strategic') {
-    setMode('strategic');
-  }
+  var codeSignals = /\b(code|github|repo|deploy|push|commit|file|function|bug|refactor|html|css|js|javascript|api|edit|update|fix|build|implement|create.*file|write.*code|show.*code)\b/i;
+  if (codeSignals.test(text) && currentMode !== 'code')       { setMode('code');      return true; }
+  if (!codeSignals.test(text) && currentMode !== 'strategic') { setMode('strategic'); }
   return false;
 }
 
@@ -853,12 +899,18 @@ function openSettings() {
   document.getElementById('s_repo1_name').value = get('repo1name', '');
   document.getElementById('s_about').value      = get('about', '');
   document.getElementById('s_prefs').value      = get('prefs', '');
-  const m = mem();
-  const txt = Object.entries(m)
-    .filter(([k]) => !['conversation','sessions','currentSession','msg_queue'].includes(k))
-    .map(([k,v]) => `${k}: ${typeof v==='object'?JSON.stringify(v):v}`)
-    .join('\n') || 'Nothing saved yet.';
-  document.getElementById('memoryBox').textContent = txt;
+  var facts = get('learnedFacts', []);
+  document.getElementById('memoryBox').textContent = facts.length ? facts.join('\n') : 'Nothing saved yet.';
+
+  // Show adaptive profile summary if available
+  var profBox = document.getElementById('profileBox');
+  if (profBox) {
+    if (_adaptiveProfile && _adaptiveProfile.observations && _adaptiveProfile.observations.length) {
+      profBox.textContent = _adaptiveProfile.observations.join('\n');
+    } else {
+      profBox.textContent = 'Not enough interactions yet. Builds over time.';
+    }
+  }
   document.getElementById('settingsOverlay').classList.add('open');
 }
 
@@ -874,9 +926,8 @@ function saveSettings() {
   set('setupDone', true);
   closeSettings();
   updateStatus();
-  const n = get('userName','');
-  if (n) document.getElementById('welcomeTitle').textContent = 'Good to see you, ' + n;
-  addAI('✅ Settings saved' + (n ? ', ' + n : '') + '. What would you like to work on?');
+  var n = get('userName', '');
+  addAI('Settings saved' + (n ? ', ' + n : '') + '. What would you like to work on?');
 }
 
 function clearMemory() {
@@ -901,10 +952,8 @@ function clearAllChats() {
 // SIDEBAR
 // ═══════════════════════════════════════════════════════
 function toggleSidebar() {
-  const sb = document.getElementById('sidebar');
-  const bd = document.getElementById('sidebarBackdrop');
-  sb.classList.toggle('open');
-  bd.classList.toggle('show');
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarBackdrop').classList.toggle('show');
 }
 function closeSidebar() {
   document.getElementById('sidebar').classList.remove('open');
@@ -915,12 +964,12 @@ function closeSidebar() {
 // UI HELPERS
 // ═══════════════════════════════════════════════════════
 function updateStatus() {
-  const n  = get('userName','');
-  const rn = get('repo1name','');
-  document.getElementById('statusDot').className = 'status-dot ready';
+  var n  = get('userName', '');
+  var rn = get('repo1name', '');
+  document.getElementById('statusDot').className    = 'status-dot ready';
   document.getElementById('statusText').textContent = 'Ready' + (rn ? ' · ' + rn : '') + (n ? ' · ' + n : '');
   if (n) {
-    document.getElementById('agentTitle').textContent = n + "'s Agent";
+    document.getElementById('agentTitle').textContent   = n + "'s Agent";
     document.getElementById('welcomeTitle').textContent = 'Good to see you, ' + n;
   }
   if (rn) document.getElementById('agentSubtitle').textContent = rn + ' · Eritage ENT Care';
@@ -929,130 +978,119 @@ function updateStatus() {
 function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 140) + 'px'; }
 function handleKey(e)   { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
 function quickSend(t)   { document.getElementById('userInput').value = t; sendMessage(); }
-function scrollBot()    { const m = document.getElementById('messages'); setTimeout(() => m.scrollTop = m.scrollHeight, 60); }
+function scrollBot()    { var m = document.getElementById('messages'); setTimeout(function() { m.scrollTop = m.scrollHeight; }, 60); }
 
 function showWelcome() {
-  const msgs = document.getElementById('messages');
-  if (!document.getElementById('welcomeScreen')) {
-    const w = document.createElement('div');
-    w.className = 'welcome'; w.id = 'welcomeScreen';
-    const n = get('userName', 'Fahad');
-    w.innerHTML = `<div class="welcome-logo">🤖</div>
-      <h1>Good to see you, ${esc(n)}</h1>
-      <p>Your personal cognitive extension. I think, plan, build, and deploy — just tell me what you need.</p>
-      <div class="suggestions">
-        <div class="suggestion" onclick="quickSend('List all my GitHub repositories')">📁 List my repos</div>
-        <div class="suggestion" onclick="quickSend('What strategies can grow my clinic patient base?')">🏥 Grow my clinic</div>
-        <div class="suggestion" onclick="quickSend('Give me an SEO audit plan for eritageentcare.com')">🔍 SEO audit plan</div>
-        <div class="suggestion" onclick="quickSend('What do you remember about me?')">🧠 What you know</div>
-      </div>`;
-    msgs.appendChild(w);
-  }
+  var msgs = document.getElementById('messages');
+  if (document.getElementById('welcomeScreen')) return;
+  var n = get('userName', 'Fahad');
+  var w = document.createElement('div');
+  w.className = 'welcome'; w.id = 'welcomeScreen';
+  w.innerHTML = '<div class="welcome-logo">&#x1F916;</div>'
+    + '<h1 id="welcomeTitle">Good to see you, ' + esc(n) + '</h1>'
+    + '<p>Your personal cognitive extension. I think, plan, build, and deploy.</p>'
+    + '<div class="suggestions">'
+    + '<div class="suggestion" onclick="quickSend(\'List all my GitHub repositories\')">&#x1F4C1; List my repos</div>'
+    + '<div class="suggestion" onclick="quickSend(\'What strategies can grow my clinic patient base?\')">&#x1F3E5; Grow my clinic</div>'
+    + '<div class="suggestion" onclick="quickSend(\'Give me an SEO audit plan for eritageentcare.com\')">&#x1F50D; SEO audit plan</div>'
+    + '<div class="suggestion" onclick="quickSend(\'What have you learned about how I like to work?\')">&#x1F9E0; What you\'ve learned</div>'
+    + '</div>';
+  msgs.appendChild(w);
 }
 
 function esc(t) {
-  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br/>');
+  return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function fmt(text) {
   if (!text) return '';
-  // Code blocks
-  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) =>
-    `<pre><code>${code.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</code></pre>`);
-  // Inline code
+  text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, function(_, lang, code) {
+    return '<pre><code>' + code.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>';
+  });
   text = text.replace(/`([^`\n]+)`/g, '<code>$1</code>');
-  // Bold
   text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  // Italic
   text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-  // Headers
   text = text.replace(/^### (.+)$/gm, '<strong style="font-size:13px;color:var(--accent)">$1</strong>');
   text = text.replace(/^## (.+)$/gm,  '<strong style="font-size:14px">$1</strong>');
-  // HR
   text = text.replace(/^---$/gm, '<hr/>');
-  // Newlines
   text = text.replace(/\n/g, '<br/>');
   return text;
 }
 
 function safeParseJSON(str) {
-  const c = String(str).trim().replace(/^```json?\s*/i,'').replace(/```\s*$/,'').replace(/^`+|`+$/g,'').trim();
+  var c = String(str).trim()
+    .replace(/^```json\s*/i, '').replace(/```\s*$/, '')
+    .replace(/^`+|`+$/g, '').trim();
   return JSON.parse(c);
 }
 
 function _addUser(text, animate) {
-  const w = document.getElementById('welcomeScreen'); if (w) w.remove();
-  const msgs = document.getElementById('messages');
-  const d = document.createElement('div');
-  d.className = 'msg-wrap user' + (animate ? '' : '');
+  var w = document.getElementById('welcomeScreen'); if (w) w.remove();
+  var msgs = document.getElementById('messages');
+  var d = document.createElement('div');
+  d.className = 'msg-wrap user';
   if (!animate) d.style.animation = 'none';
-  d.innerHTML = `<div class="msg-avatar">👤</div><div class="bubble">${esc(text)}</div>`;
+  d.innerHTML = '<div class="msg-avatar">&#x1F464;</div><div class="bubble">' + esc(text) + '</div>';
   msgs.appendChild(d); scrollBot();
 }
-
 function addUser(text) { _addUser(text, true); }
 
 function _addAI(html, animate) {
-  const msgs = document.getElementById('messages');
-  const d = document.createElement('div');
+  var msgs = document.getElementById('messages');
+  var d = document.createElement('div');
   d.className = 'msg-wrap ai';
   if (!animate) d.style.animation = 'none';
-  d.innerHTML = `<div class="msg-avatar">🤖</div><div class="bubble">${html}</div>`;
+  d.innerHTML = '<div class="msg-avatar">&#x1F916;</div><div class="bubble">' + html + '</div>';
   msgs.appendChild(d); scrollBot(); return d;
 }
-
 function addAI(html) { return _addAI(html, true); }
 
 function showTyping() {
-  const msgs = document.getElementById('messages');
-  const d = document.createElement('div');
+  var msgs = document.getElementById('messages');
+  var d    = document.createElement('div');
   d.className = 'typing-wrap'; d.id = 'typing';
-  d.innerHTML = '<div class="msg-avatar" style="width:30px;height:30px;background:var(--accent2);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;margin-top:2px;">🤖</div><div class="typing-dots"><span></span><span></span><span></span></div>';
+  d.innerHTML = '<div class="msg-avatar" style="width:30px;height:30px;background:var(--accent2);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;margin-top:2px;">&#x1F916;</div>'
+    + '<div class="typing-dots"><span></span><span></span><span></span></div>';
   msgs.appendChild(d); scrollBot();
 }
-function hideTyping() { const t = document.getElementById('typing'); if (t) t.remove(); }
+function hideTyping() { var t = document.getElementById('typing'); if (t) t.remove(); }
 
 // ═══════════════════════════════════════════════════════
-// SYSTEM PROMPT — dual mode
+// SYSTEM PROMPT — adaptive, lean, dual-mode
 // ═══════════════════════════════════════════════════════
 function sysPrompt() {
   var name    = get('userName', 'Fahad');
   var repo1   = get('repo1', '');
-  var r1n     = get('repo1name', '');
   var about   = get('about', '');
   var prefs   = get('prefs', '');
   var facts   = get('learnedFacts', []);
   var mode    = currentMode;
   var now     = new Date();
-  var dateStr = now.toLocaleDateString('en-GB', {year:'numeric', month:'short', day:'numeric'});
+  var dateStr = now.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' });
 
-  // Lean base: skip defaults to save tokens
-  var aboutLine = (about && about.length > 5)
-    ? 'About: ' + about
-    : 'ENT surgeon, Uganda. Non-developer. Plain language only.';
-  var prefsLine = (prefs && prefs.length > 5)
-    ? 'Prefs: ' + prefs
-    : 'Direct, brief, no jargon.';
-  var factLine  = facts.length
-    ? ' Known: ' + facts.slice(-10).map(function(f) { return f.slice(0, 80); }).join('; ')
-    : '';
+  var aboutLine = (about && about.length > 5) ? 'About: ' + about : 'ENT surgeon, Uganda. Non-developer. Plain language.';
+  var prefsLine = (prefs && prefs.length > 5) ? 'Prefs: ' + prefs : 'Direct, brief, no jargon.';
+  var factLine  = facts.length ? ' Known: ' + facts.slice(-10).map(function(f) { return f.slice(0, 80); }).join('; ') : '';
+
+  // Inject adaptive profile if available
+  var adaptiveCtx = _adaptiveProfile ? buildAdaptiveContext(_adaptiveProfile) : '';
 
   var base = 'Agent for ' + name + ' (' + dateStr + '). Repo: ' + (repo1 || 'not set') + '. '
-    + aboutLine + ' ' + prefsLine + factLine;
+    + aboutLine + ' ' + prefsLine + factLine
+    + (adaptiveCtx ? ' ' + adaptiveCtx : '');
 
-  var strategicInstr = 'STRATEGIC MODE: You are a senior strategist+technologist. Think deeply, surface insights unprompted, give concrete actionable advice. Warm, occasionally witty. Say "Switching to Code Mode" when appropriate.';
+  var strategicInstr = 'STRATEGIC MODE: Senior strategist+technologist. Think deeply, surface insights unprompted, concrete actionable advice. Warm, witty. Say "Switching to Code Mode" when appropriate.';
 
-  var codeInstr = 'CODE MODE rules: 1) Start every reply "Code Mode — [what you are doing]" 2) Explain change before code 3) Full file only 4) No action without explicit yes/confirmed 5) Never assume file structure 6) Never hallucinate paths.'
-    + ' GitHub (raw JSON, no backticks): [ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]'
+  var codeInstr = 'CODE MODE: 1) Start "Code Mode — [what]" 2) Explain before code 3) Full file only 4) No action without yes/confirmed 5) Never assume structure 6) Never hallucinate paths.'
+    + ' [ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]'
     + ' [ACTION:GITHUB]{"action":"getFile","repo":"owner/repo","path":"file"}[/ACTION:GITHUB]'
-    + ' Deploy: [ACTION:DEPLOY]{"repo":"...","branch":"main","commit_message":"...","files":[{"path":"...","content":"..."}]}[/ACTION:DEPLOY]'
+    + ' [ACTION:DEPLOY]{"repo":"...","branch":"main","commit_message":"...","files":[{"path":"...","content":"..."}]}[/ACTION:DEPLOY]'
     + ' Never push without explicit yes.';
 
-  var memRule = ' Store new facts: [MEMORY]fact[/MEMORY]';
+  var memRule = ' Store facts: [MEMORY]fact[/MEMORY]';
 
   return base + '\n' + (mode === 'code' ? codeInstr : strategicInstr) + memRule;
 }
-
 
 // ═══════════════════════════════════════════════════════
 // RATE LIMIT + COUNTDOWN
@@ -1062,7 +1100,7 @@ var countdownInterval = null;
 var messageQueue      = [];
 
 function nextMidnightPacific() {
-  var offset = 8 * 60 * 60 * 1000;
+  var offset  = 8 * 60 * 60 * 1000;
   var pacific = new Date(Date.now() - offset);
   pacific.setHours(24, 0, 0, 0);
   return pacific.getTime() + offset;
@@ -1073,9 +1111,11 @@ function clearGeminiLimit()  { geminiResetAt = 0; set('gemini_reset_at', 0); }
 
 function formatCountdown(ms) {
   if (ms <= 0) return '0s';
-  var s = Math.floor(ms/1000), h = Math.floor(s/3600); s -= h*3600;
-  var m = Math.floor(s/60); s -= m*60;
-  if (h > 0) return h+'h '+m+'m'; if (m > 0) return m+'m '+s+'s'; return s+'s';
+  var s = Math.floor(ms / 1000), h = Math.floor(s / 3600); s -= h * 3600;
+  var m = Math.floor(s / 60); s -= m * 60;
+  if (h > 0) return h + 'h ' + m + 'm';
+  if (m > 0) return m + 'm ' + s + 's';
+  return s + 's';
 }
 
 function startCountdown() {
@@ -1085,15 +1125,15 @@ function startCountdown() {
       clearInterval(countdownInterval); countdownInterval = null;
       clearGeminiLimit(); updateStatus(); flushQueue(); return;
     }
-    document.getElementById('statusDot').className = 'status-dot';
-    document.getElementById('statusText').textContent = '⏳ Quota resets in ' + formatCountdown(geminiResetAt - Date.now());
+    document.getElementById('statusDot').className    = 'status-dot';
+    document.getElementById('statusText').textContent = 'Quota resets in ' + formatCountdown(geminiResetAt - Date.now());
   }, 1000);
 }
 
 function queueMessage(text) {
   messageQueue.push(text);
   set('msg_queue', messageQueue);
-  addAI('📥 <strong>Message queued.</strong> Gemini quota is up for today — resets in <strong>' + formatCountdown(geminiResetAt - Date.now()) + '</strong>. Will auto-send when quota refreshes.');
+  addAI('<strong>Message queued.</strong> Gemini quota is up for today — resets in <strong>' + formatCountdown(geminiResetAt - Date.now()) + '</strong>. Will auto-send when quota refreshes.');
 }
 
 async function flushQueue() {
@@ -1102,13 +1142,16 @@ async function flushQueue() {
   set('msg_queue', []);
   if (!messageQueue.length) return;
   var queued = messageQueue.splice(0);
-  addAI('✅ <strong>Quota restored!</strong> Sending ' + queued.length + ' queued message' + (queued.length > 1 ? 's' : '') + '…');
+  addAI('<strong>Quota restored!</strong> Sending ' + queued.length + ' queued message' + (queued.length > 1 ? 's' : '') + '...');
   for (var i = 0; i < queued.length; i++) {
     await sendMessageText(queued[i]);
-    await new Promise(function(r){ setTimeout(r, 800); });
+    await new Promise(function(r) { setTimeout(r, 800); });
   }
 }
 
+// ═══════════════════════════════════════════════════════
+// REASONING GATE — skip LLM for trivial inputs
+// ═══════════════════════════════════════════════════════
 function reasoningGate(text) {
   var t = text.trim().toLowerCase();
   if (/^(hi|hello|hey|halo|hiya|yo)[!.\s]*$/.test(t))
@@ -1119,29 +1162,34 @@ function reasoningGate(text) {
     return 'Got it. What would you like to do next?';
   if (/^(what is |what.s )?(today.?s )?(date|time|day)\??$/.test(t)) {
     var n = new Date();
-    return n.toLocaleDateString('en-GB', {weekday:'long', year:'numeric', month:'long', day:'numeric'})
-      + ' at ' + n.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+    return n.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+      + ' at ' + n.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   }
   if (/^what (mode|modes?)/.test(t))
     return currentMode === 'code' ? 'Code Mode — strict execution.' : 'Strategic Mode — planning and thinking.';
   return null;
 }
 
+// ═══════════════════════════════════════════════════════
+// API CALLS
+// ═══════════════════════════════════════════════════════
 var totalTokensUsed = 0;
 
 async function callAI(userMsg) {
   var provider = get('brain', 'gemini');
   var history  = getCompactHistory();
   if (isGeminiLimited()) { var e = new Error('quota'); e.isQuota = true; throw e; }
+
   var sys = sysPrompt();
   var est = estimateTokens(sys) + estimateTokens(userMsg)
     + history.reduce(function(t, m) { return t + estimateTokens(m.content); }, 0);
   totalTokensUsed += est;
-  console.log('[tokens] input est:', est, '| session total:', totalTokensUsed);
+  console.log('[tokens] est input:', est, '| session total:', totalTokensUsed);
+
   var r = await fetch('/api/ai', {
-    method: 'POST',
+    method:  'POST',
     headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
-    body: JSON.stringify({ provider: provider, systemPrompt: sys, history: history, userMessage: userMsg }),
+    body:    JSON.stringify({ provider: provider, systemPrompt: sys, history: history, userMessage: userMsg }),
   });
   var text = await r.text();
   var data;
@@ -1151,43 +1199,38 @@ async function callAI(userMsg) {
     var msg = data.error || 'HTTP ' + r.status;
     var low = msg.toLowerCase();
     var err = new Error(msg);
+    if (r.status === 401) { handleSessionExpiry(); err.friendlyHTML = '<strong>Session expired.</strong> Please log in again.'; throw err; }
     if (r.status === 429 || low.includes('quota') || low.includes('exhausted') || low.includes('resource_exhausted')) { err.isQuota = true; throw err; }
-    if (r.status === 401) { handleSessionExpiry(); err.friendlyHTML = '&#x1F512; <strong>Session expired.</strong> Please log in again.'; throw err; }
-    if (r.status === 403) { err.friendlyHTML = '&#128273; <strong>API key rejected.</strong> Check GEMINI_API_KEY in Vercel.'; throw err; }
-    err.friendlyHTML = '&#10060; <strong>Error:</strong> ' + esc(msg);
+    err.friendlyHTML = '<strong>Error:</strong> ' + esc(msg);
     throw err;
   }
   if (!data.response) throw new Error('Empty response from server.');
   return data.response;
 }
 
-
-// ═══════════════════════════════════════════════════════
-// GITHUB API
-// ═══════════════════════════════════════════════════════
 async function githubAPI(payload) {
   var r = await fetch('/api/github', {
-    method: 'POST',
+    method:  'POST',
     headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
-    body: JSON.stringify(payload),
+    body:    JSON.stringify(payload),
   });
   var text = await r.text();
   var data;
   try { data = text ? JSON.parse(text) : {}; }
-  catch(e) { throw new Error('GitHub API invalid response: ' + text.slice(0,120)); }
+  catch(e) { throw new Error('GitHub API invalid response: ' + text.slice(0, 120)); }
   if (r.status === 401) { handleSessionExpiry(); throw new Error('Session expired — please log in again.'); }
   if (!r.ok) throw new Error(data.error || 'GitHub HTTP ' + r.status);
   return data;
 }
 
 // ═══════════════════════════════════════════════════════
-// PREFETCH
+// GITHUB PREFETCH — cached, surgical
 // ═══════════════════════════════════════════════════════
 var REPO_RE   = /repo|repositor|github|my projects?|my sites?|what.*(have|own)|how many/i;
 var COMMIT_RE = /commit|commit history|recent changes|what changed|last (push|update)/i;
 var FILE_RE   = /(?:read|show|open|view|get|fetch)\s.{1,60}\.(html|css|js|md|json|txt|py)/i;
+var _ghCache  = {};
 
-var _ghCache = {};
 async function cachedGithubAPI(payload) {
   var key = JSON.stringify(payload);
   if (_ghCache[key]) return _ghCache[key];
@@ -1211,10 +1254,9 @@ async function prefetchGitHub(text) {
       if (!repo) return null;
       var data2 = await cachedGithubAPI({ action: 'listCommits', repo: repo, limit: 5 });
       if (!data2.commits || !data2.commits.length) return null;
-      var lines = data2.commits.map(function(c) {
+      return 'COMMITS ' + repo + ': ' + data2.commits.map(function(c) {
         return '[' + c.sha + '] ' + (c.date ? c.date.slice(0, 10) : '') + ': ' + c.message.slice(0, 60);
       }).join(' | ');
-      return 'COMMITS ' + repo + ': ' + lines;
     }
     if (FILE_RE.test(text)) {
       var fileMatch = text.match(/[\w\-./]+\.(html|css|js|md|json|txt|py)/i);
@@ -1222,9 +1264,7 @@ async function prefetchGitHub(text) {
       if (fileMatch && repo2) {
         var data3 = await cachedGithubAPI({ action: 'getFile', repo: repo2, path: fileMatch[0] });
         if (data3.content) {
-          var capped = data3.content.length > 3000
-            ? data3.content.slice(0, 3000) + '...[truncated at 3000 chars]'
-            : data3.content;
+          var capped = data3.content.length > 3000 ? data3.content.slice(0, 3000) + '...[truncated]' : data3.content;
           return 'FILE ' + fileMatch[0] + ':\n' + capped;
         }
       }
@@ -1235,106 +1275,123 @@ async function prefetchGitHub(text) {
   return null;
 }
 
+// ═══════════════════════════════════════════════════════
+// DEPLOY
+// ═══════════════════════════════════════════════════════
 async function executeDeploy(action, msgEl) {
-  const { repo, branch, commit_message, files } = action;
-  const bubble = msgEl.querySelector('.bubble');
-  let log = '';
-  const appendLog = (line, cls) => { log += `<div class="${cls||''}">${line}</div>`; bubble.querySelector('.deploy-log').innerHTML = log; scrollBot(); };
-  bubble.innerHTML = '<strong>🚀 Deploying…</strong><div class="deploy-bar-wrap"><div class="deploy-bar" id="dBar"></div></div><div class="deploy-label" id="dLabel">Starting…</div><div class="deploy-log"></div>';
+  var repo   = action.repo, branch = action.branch, commit_message = action.commit_message, files = action.files;
+  var bubble = msgEl.querySelector('.bubble');
+  var log    = '';
+  function appendLog(line, cls) {
+    log += '<div class="' + (cls || '') + '">' + line + '</div>';
+    bubble.querySelector('.deploy-log').innerHTML = log;
+    scrollBot();
+  }
+  bubble.innerHTML = '<strong>Deploying...</strong>'
+    + '<div class="deploy-bar-wrap"><div class="deploy-bar" id="dBar"></div></div>'
+    + '<div class="deploy-label" id="dLabel">Starting...</div>'
+    + '<div class="deploy-log"></div>';
   for (var i = 0; i < files.length; i++) {
     var f = files[i];
-    document.getElementById('dBar').style.width = Math.round((i/files.length)*100) + '%';
-    document.getElementById('dLabel').textContent = i+'/'+files.length+' — '+f.path;
-    appendLog('→ '+f.path, 'info');
-    try { await githubAPI({ action:'pushFile', repo, branch:branch||'main', path:f.path, content:f.content, commitMessage:commit_message||'update: '+f.path }); appendLog('  ✅ pushed','ok'); }
-    catch(e) { appendLog('  ❌ '+e.message,'err'); }
-    await new Promise(r => setTimeout(r, 280));
+    document.getElementById('dBar').style.width = Math.round((i / files.length) * 100) + '%';
+    document.getElementById('dLabel').textContent = i + '/' + files.length + ' — ' + f.path;
+    appendLog('> ' + f.path, 'info');
+    try {
+      await githubAPI({ action: 'pushFile', repo: repo, branch: branch || 'main', path: f.path, content: f.content, commitMessage: commit_message || 'update: ' + f.path });
+      appendLog('  pushed', 'ok');
+    } catch(e) { appendLog('  ERROR: ' + e.message, 'err'); }
+    await new Promise(function(r) { setTimeout(r, 280); });
   }
   document.getElementById('dBar').style.width = '100%';
-  document.getElementById('dLabel').textContent = files.length+'/'+files.length+' complete';
-  appendLog('🎉 Done! Vercel rebuilds in ~60s.', 'ok');
+  document.getElementById('dLabel').textContent = files.length + '/' + files.length + ' complete';
+  appendLog('Done! Vercel rebuilds in ~60s.', 'ok');
   scrollBot();
 }
 
 async function confirmDeploy(btn, actionStr) {
-  btn.parentNode.innerHTML = '<em>Deploying…</em>';
-  var action = JSON.parse(actionStr.replace(/&quot;/g,'"'));
-  var el = addAI('<strong>🚀 Starting…</strong>');
+  btn.parentNode.innerHTML = '<em>Deploying...</em>';
+  var action = JSON.parse(actionStr.replace(/&quot;/g, '"'));
+  var el = addAI('<strong>Starting...</strong>');
   try { await executeDeploy(action, el); }
-  catch(e) { el.querySelector('.bubble').innerHTML = '❌ Deploy failed: ' + esc(e.message); }
+  catch(e) { el.querySelector('.bubble').innerHTML = 'Deploy failed: ' + esc(e.message); }
 }
 
 // ═══════════════════════════════════════════════════════
 // RESPONSE HANDLER
 // ═══════════════════════════════════════════════════════
 async function handleResponse(raw, msgEl) {
-  var memMatches = [...raw.matchAll(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g)];
+  var memMatches = Array.from(raw.matchAll(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g));
   var ghMatch    = raw.match(/\[ACTION:GITHUB\]([\s\S]*?)\[\/ACTION:GITHUB\]/);
   var depMatch   = raw.match(/\[ACTION:DEPLOY\]([\s\S]*?)\[\/ACTION:DEPLOY\]/);
 
-  memMatches.forEach(m => {
-    var fact = m[1].trim();
-    var facts = get('learnedFacts',[]);
+  // Save memory facts
+  memMatches.forEach(function(m) {
+    var fact  = m[1].trim();
+    var facts = get('learnedFacts', []);
     if (!facts.includes(fact)) { facts.push(fact); set('learnedFacts', facts); }
   });
 
-  // Check if agent is announcing a mode switch
-  var modeSwitchToCode      = /switching to.*code mode|entering code mode|⚡ code mode/i.test(raw);
-  var modeSwitchToStrategic = /switching to.*strategic mode|back to strategic/i.test(raw);
-  if (modeSwitchToCode)      setMode('code');
-  if (modeSwitchToStrategic) setMode('strategic');
+  // Detect mode switch announcements
+  if (/switching to.*code mode|entering code mode/i.test(raw))      setMode('code');
+  if (/switching to.*strategic mode|back to strategic/i.test(raw))  setMode('strategic');
 
   var display = raw
-    .replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g,'')
-    .replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g,'')
-    .replace(/\[ACTION:DEPLOY\][\s\S]*?\[\/ACTION:DEPLOY\]/g,'')
+    .replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g, '')
+    .replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g, '')
+    .replace(/\[ACTION:DEPLOY\][\s\S]*?\[\/ACTION:DEPLOY\]/g, '')
     .trim();
 
   if (display) msgEl.querySelector('.bubble').innerHTML = fmt(display);
   scrollBot();
 
+  // Handle GitHub action
   if (ghMatch) {
     var ghPayload;
     try { ghPayload = safeParseJSON(ghMatch[1]); }
-    catch(e) { addAI('⚠️ GitHub action JSON malformed. Rephrase your request.'); return; }
-    var fetchEl = addAI('<em>🔍 Fetching from GitHub (' + ghPayload.action + ')…</em>');
+    catch(e) { addAI('GitHub action JSON malformed. Rephrase your request.'); return; }
+    var fetchEl = addAI('<em>Fetching from GitHub (' + ghPayload.action + ')...</em>');
     var ghResult;
     try {
       ghResult = await githubAPI(ghPayload);
-      fetchEl.querySelector('.bubble').innerHTML = '<em>✅ Got data — summarising…</em>';
-    } catch(e) { fetchEl.querySelector('.bubble').innerHTML = '❌ GitHub error: ' + esc(e.message); return; }
-    var followUp = 'Here is the real live GitHub data for ' + ghPayload.action + ':\n\n' + JSON.stringify(ghResult, null, 2) + '\n\nPlease summarise this clearly in plain language for me.';
+      fetchEl.querySelector('.bubble').innerHTML = '<em>Got data — summarising...</em>';
+    } catch(e) { fetchEl.querySelector('.bubble').innerHTML = 'GitHub error: ' + esc(e.message); return; }
+    var followUp = 'Live GitHub data for ' + ghPayload.action + ':\n\n' + JSON.stringify(ghResult, null, 2) + '\n\nSummarise this clearly in plain language.';
     pushConvo('assistant', raw); pushConvo('user', followUp);
     showTyping();
     try {
       var summary = await callAI(followUp);
       hideTyping();
-      fetchEl.querySelector('.bubble').innerHTML = fmt(summary.replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g,'').replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g,'').trim());
+      var clean = summary.replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g, '').replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g, '').trim();
+      fetchEl.querySelector('.bubble').innerHTML = fmt(clean);
       pushConvo('assistant', summary);
-    } catch(e) { hideTyping(); fetchEl.querySelector('.bubble').innerHTML = e.friendlyHTML || ('❌ ' + esc(e.message)); }
+    } catch(e) { hideTyping(); fetchEl.querySelector('.bubble').innerHTML = e.friendlyHTML || ('Error: ' + esc(e.message)); }
     scrollBot(); return;
   }
 
+  // Handle deploy action
   if (depMatch) {
     var action;
     try { action = safeParseJSON(depMatch[1]); }
-    catch(e) { addAI('⚠️ Deploy action malformed JSON. Please try again.'); return; }
+    catch(e) { addAI('Deploy action had malformed JSON. Please try again.'); return; }
     var cnt  = (action.files && action.files.length) || 0;
-    var safe = JSON.stringify(action).replace(/"/g,'&quot;');
-    addAI(`<strong>Ready to deploy ${cnt} file(s) to <code>${action.repo}</code></strong><br/><br/>Confirm to proceed:<br/><button class="action-btn green" onclick="confirmDeploy(this,'${safe}')">✅ Yes, deploy</button><button class="action-btn red" onclick="this.closest('.msg-wrap').remove()">❌ Cancel</button>`);
+    var safe = JSON.stringify(action).replace(/"/g, '&quot;');
+    addAI('<strong>Ready to deploy ' + cnt + ' file(s) to <code>' + action.repo + '</code></strong><br/><br/>'
+      + '<button class="action-btn green" onclick="confirmDeploy(this,\'' + safe + '\')">Yes, deploy</button>'
+      + '<button class="action-btn red" onclick="this.closest(\'.msg-wrap\').remove()">Cancel</button>');
   }
 }
 
 // ═══════════════════════════════════════════════════════
-// SEND
+// MAIN SEND
 // ═══════════════════════════════════════════════════════
 async function sendMessageText(text) {
-  // Auto-detect mode
-  var justSwitched = detectMode(text);
+  // Score previous AI reply based on this new message (implicit feedback)
+  scoreImplicitFeedback(text);
 
+  detectMode(text);
   addUser(text);
   document.getElementById('statusDot').className    = 'status-dot thinking';
-  document.getElementById('statusText').textContent = currentMode === 'code' ? '⚡ Code Mode — thinking…' : '⚡ Thinking…';
+  document.getElementById('statusText').textContent = currentMode === 'code' ? 'Code Mode — thinking...' : 'Thinking...';
   showTyping();
 
   try {
@@ -1349,22 +1406,28 @@ async function sendMessageText(text) {
       saveCurrentMessages();
       return;
     }
-    // Prefetch only what the message actually needs, inject compactly
+
+    // Prefetch GitHub context if relevant
     var ghContext = await prefetchGitHub(text);
     var msgToSend = ghContext ? text + ' [GitHub: ' + ghContext + ']' : text;
+
     pushConvo('user', text);
     var response = await callAI(msgToSend);
     hideTyping();
     var el = addAI('');
     await handleResponse(response, el);
     pushConvo('assistant', response);
-    // Ensure session exists
+
+    // Queue this exchange for implicit feedback scoring on next user turn
+    _pendingFeedback = { userMsg: text, aiReply: response };
+
     if (!getCurrentSessionId()) set('currentSession', 'chat_' + Date.now());
     saveCurrentMessages();
+
   } catch(e) {
     hideTyping();
     if (e.isQuota) { markGeminiLimited(); queueMessage(text); }
-    else { addAI(e.friendlyHTML || ('❌ <strong>Error:</strong> ' + esc(e.message))); }
+    else { addAI(e.friendlyHTML || ('<strong>Error:</strong> ' + esc(e.message))); }
   }
 }
 
@@ -1382,13 +1445,9 @@ async function sendMessage() {
 // ═══════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════
-function initApp() {
-  // Start fresh session if none active
-  if (!getCurrentSessionId()) {
-    set('currentSession', 'chat_' + Date.now());
-  }
-  var savedMode = get('mode', 'strategic');
-  setMode(savedMode);
+async function initApp() {
+  if (!getCurrentSessionId()) set('currentSession', 'chat_' + Date.now());
+  setMode(get('mode', 'strategic'));
   updateStatus();
   renderChatList();
   var id = getCurrentSessionId();
@@ -1397,10 +1456,23 @@ function initApp() {
     if (session && session.messages && session.messages.length) {
       set('conversation', session.messages);
       renderMessages(session.messages);
+    } else {
+      showWelcome();
     }
+  } else {
+    showWelcome();
   }
   if (!get('setupDone')) setTimeout(openSettings, 700);
   if (isGeminiLimited()) startCountdown();
+
+  // Load adaptive profile from KV (non-blocking)
+  fetchAdaptiveProfile().then(function(profile) {
+    if (profile) console.log('[learn] profile loaded. Interactions:', profile.totalInteractions || 0);
+  });
+
+  // Run daily analysis if needed (non-blocking)
+  maybeRunDailyAnalysis();
+
   document.getElementById('userInput').focus();
 }
 
