@@ -60,11 +60,17 @@ async function storeTokens(userId, tokens) {
 export default async function handler(req, res) {
   const clientId     = process.env.GBP_CLIENT_ID;
   const clientSecret = process.env.GBP_CLIENT_SECRET;
-  const redirectUri  = process.env.GBP_REDIRECT_URI;
 
-  if (!clientId || !clientSecret || !redirectUri) {
-    return res.status(500).send('GBP_CLIENT_ID, GBP_CLIENT_SECRET, or GBP_REDIRECT_URI not set in Vercel env vars.');
+  if (!clientId || !clientSecret) {
+    return res.status(500).send('GBP_CLIENT_ID or GBP_CLIENT_SECRET not set in Vercel env vars.');
   }
+
+  // Auto-detect redirect URI from the actual incoming request.
+  // This guarantees the URI sent to Google always matches exactly
+  // what Google received — no env var mismatch possible.
+  const proto       = req.headers['x-forwarded-proto'] || 'https';
+  const host        = req.headers['x-forwarded-host']  || req.headers['host'];
+  const redirectUri = proto + '://' + host + '/api/gbp-auth';
 
   const { code, state, error } = req.query || {};
 
