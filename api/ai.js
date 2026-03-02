@@ -157,7 +157,70 @@ export default async function handler(req, res) {
       return sendDone();
     }
 
-    sendError("Invalid provider. Use 'gemini' or 'openai'.");
+    // ── Anthropic Claude streaming ─────────────────────────────────────────
+    if (provider === 'claude') {
+      const apiKey = process.env.CLAUDE_KEY;
+      if (!apiKey) return sendError('CLAUDE_KEY not configured in Vercel environment variables.');
+
+      const messages = [];
+      for (const m of history) messages.push({ role: m.role === 'assistant' ? 'assistant' : 'user', content: m.content });
+      messages.push({ role: 'user', content: userMessage });
+
+      const upstream = await fetch('https://api.anthropic.com/v1/messages', {
+        method:  'POST',
+        headers: {
+          'Content-Type':      'application/json',
+          'x-api-key':         apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-beta':    'interleaved-thinking-2025-05-14',
+        },
+        body: JSON.stringify({
+          model:      'claude-sonnet-4-5',
+          max_tokens: 2000,
+          system:     systemPrompt || undefined,
+          messages,
+          stream:     true,
+        }),
+      });
+
+      if (!upstream.ok) {
+        const errText = await upstream.text();
+        let errMsg = 'Claude error HTTP ' + upstream.status;
+        try { const j = JSON.parse(errText); errMsg = j.error?.message || errMsg; } catch(e) {}
+        if (upstream.status === 429) return sendError('QUOTA:' + errMsg);
+        if (upstream.status === 401) return sendError('Invalid Anthropic API key — check CLAUDE_KEY in Vercel.');
+        return sendError(errMsg);
+      }
+
+      const reader  = upstream.body.getReader();
+      const decoder = new TextDecoder();
+      let   buffer  = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw || raw === '[DONE]') continue;
+          try {
+            const chunk = JSON.parse(raw);
+            // Claude SSE: content_block_delta with delta.type === 'text_delta'
+            if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
+              send(chunk.delta.text);
+            }
+          } catch(e) { /* skip malformed chunk */ }
+        }
+      }
+
+      return sendDone();
+    }
+
+    sendError("Invalid provider. Use 'gemini', 'openai', or 'claude'.");
 
   } catch (err) {
     console.error('AI handler error:', err);
