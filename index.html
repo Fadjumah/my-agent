@@ -1901,7 +1901,14 @@ async function handleGBPAction(action) {
 
   // Read-only — execute and summarise
   showWhisper('Fetching from Google Business...');
-  var result = await gbpAPI(action);
+  var result;
+  try {
+    result = await gbpAPI(action);
+  } catch(e) {
+    hideWhisper();
+    addAI('<strong>GBP Error:</strong> ' + esc(e.message));
+    return;
+  }
   hideWhisper();
   if (!result) return;
   var followUp = 'Google Business Profile data:\n' + JSON.stringify(result, null, 2) + '\n\nPresent this clearly and concisely in plain language.';
@@ -1910,10 +1917,16 @@ async function handleGBPAction(action) {
   var buf = '', cur = document.createElement('span');
   cur.className = 'cursor'; readBubble.appendChild(cur);
   showWhisper('Summarising...');
-  await callAI(followUp, function(chunk) {
-    buf += chunk; hideWhisper();
-    readBubble.innerHTML = fmt(buf); readBubble.appendChild(cur); scrollBot();
-  });
+  try {
+    await callAI(followUp, function(chunk) {
+      buf += chunk; hideWhisper();
+      readBubble.innerHTML = fmt(buf); readBubble.appendChild(cur); scrollBot();
+    });
+  } catch(e) {
+    hideWhisper();
+    readBubble.innerHTML = '<strong>Error summarising:</strong> ' + esc(e.message);
+    return;
+  }
   readBubble.innerHTML = fmt(buf);
 }
 
