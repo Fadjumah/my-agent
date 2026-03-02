@@ -1720,6 +1720,7 @@ async function handleResponse(raw, msgEl) {
   var memMatches = Array.from(raw.matchAll(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g));
   var ghMatch    = raw.match(/\[ACTION:GITHUB\]([\s\S]*?)\[\/ACTION:GITHUB\]/);
   var depMatch   = raw.match(/\[ACTION:DEPLOY\]([\s\S]*?)\[\/ACTION:DEPLOY\]/);
+  var gbpMatch   = raw.match(/\[ACTION:GBP\]([\s\S]*?)\[\/ACTION:GBP\]/);
 
   // Save memory facts
   memMatches.forEach(function(m) {
