@@ -106,9 +106,23 @@ async function getAccessToken(userId) {
 }
 
 // ── GBP API call helper ───────────────────────────────────────────────────────
+// Fetch with 10s timeout so Vercel never hangs
+async function timedFetch(url, opts, label) {
+  const controller = new AbortController();
+  const timer      = setTimeout(() => controller.abort(), 10000);
+  try {
+    const r = await fetch(url, { ...opts, signal: controller.signal });
+    clearTimeout(timer);
+    return r;
+  } catch(e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') throw new Error(label + ' timed out after 10s');
+    throw e;
+  }
+}
+
 async function gbpFetch(accessToken, path, method = 'GET', body = null) {
   const base = 'https://mybusinessbusinessinformation.googleapis.com/v1';
-  const alt  = 'https://mybusiness.googleapis.com/v4';
   const url  = path.startsWith('http') ? path : base + path;
 
   const opts = {
@@ -120,7 +134,7 @@ async function gbpFetch(accessToken, path, method = 'GET', body = null) {
   };
   if (body) opts.body = JSON.stringify(body);
 
-  const r    = await fetch(url, opts);
+  const r    = await timedFetch(url, opts, 'GBP API');
   const text = await r.text();
   let data;
   try { data = text ? JSON.parse(text) : {}; } catch(e) { data = { raw: text }; }
@@ -136,7 +150,7 @@ async function gbpPostsFetch(accessToken, locationName, method = 'GET', body = n
     headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
   };
   if (body) opts.body = JSON.stringify(body);
-  const r    = await fetch(url, opts);
+  const r    = await timedFetch(url, opts, 'GBP Posts');
   const text = await r.text();
   let data;
   try { data = text ? JSON.parse(text) : {}; } catch(e) { data = { raw: text }; }
@@ -152,7 +166,7 @@ async function gbpReviewsFetch(accessToken, locationName, method = 'GET', body =
     headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
   };
   if (body) opts.body = JSON.stringify(body);
-  const r    = await fetch(url, opts);
+  const r    = await timedFetch(url, opts, 'GBP Reviews');
   const text = await r.text();
   let data;
   try { data = text ? JSON.parse(text) : {}; } catch(e) { data = { raw: text }; }
@@ -180,9 +194,9 @@ export default async function handler(req, res) {
 
   try {
     const accessToken  = await getAccessToken(userId);
-    const locationName = accountId && locationId
-      ? accountId + '/' + locationId
-      : null;
+    // GBP v1 API uses just locationId for most calls (not account/location combined)
+    const locationName = locationId || null;  // e.g. locations/9277209819091563497
+    const fullName     = accountId && locationId ? accountId + '/' + locationId : null;
 
     // ── Get accounts (first-time setup — run this to find your account ID) ──
     if (action === 'getAccounts') {
@@ -215,7 +229,7 @@ export default async function handler(req, res) {
     if (action === 'getProfile') {
       const data = await gbpFetch(accessToken,
         'https://mybusinessbusinessinformation.googleapis.com/v1/' + locationName +
-        '?readMask=name,title,phoneNumbers,websiteUri,regularHours,specialHours,profile,categories');
+        '?readMask=name,title,phoneNumbers,websiteUri,regularHours,specialHours,profile,categories,storefrontAddress');
       return res.status(200).json({ profile: data });
     }
 
@@ -264,13 +278,14 @@ export default async function handler(req, res) {
     if (action === 'replyReview') {
       const { reviewId, reply } = body;
       if (!reviewId || !reply) return res.status(400).json({ error: 'reviewId and reply required' });
-      await fetch(
+      await timedFetch(
         'https://mybusiness.googleapis.com/v4/' + locationName + '/reviews/' + reviewId + '/reply',
         {
           method:  'PUT',
           headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
           body:    JSON.stringify({ comment: reply }),
-        }
+        },
+        'GBP Review Reply'
       );
       return res.status(200).json({ success: true, reviewId });
     }
@@ -294,7 +309,7 @@ export default async function handler(req, res) {
           closeTime: { hours: closeH, minutes: closeM || 0 },
         });
       });
-      const data = await gbpFetch(accessToken,
+      await gbpFetch(accessToken,
         'https://mybusinessbusinessinformation.googleapis.com/v1/' + locationName +
         '?updateMask=regularHours',
         'PATCH',
