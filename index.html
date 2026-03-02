@@ -1214,15 +1214,12 @@ function sysPrompt() {
     + (adaptiveCtx ? ' ' + adaptiveCtx : '');
 
   var strategicInstr = 'STRATEGIC MODE: Senior strategist+technologist. Think deeply, surface insights unprompted, concrete actionable advice. Warm, witty. Say "Switching to Code Mode" when appropriate.'
-    + ' Google Business Profile (Eritage ENT Care): use [ACTION:GBP]{...}[/ACTION:GBP] for:'
-    + ' {"action":"createPost","content":"post text up to 1500 chars","callToAction":"optional CTA text"}'
-    + ' {"action":"getReviews"}'
-    + ' {"action":"replyReview","reviewId":"...","reply":"reply text"}'
-    + ' {"action":"updateHours","hours":{"MONDAY":{"open":"09:00","close":"17:00"},...}}'
+    + ' GOOGLE BUSINESS PROFILE (Eritage ENT Care – Entebbe). Use [ACTION:GBP]{JSON}[/ACTION:GBP] tags. IMPORTANT: when user says get my GBP accounts or get accounts use {"action":"getAccounts"}. When user says get locations use {"action":"getLocations","accountId":"accounts/XXX"}. Other actions:'
+    + ' {"action":"getProfile"} {"action":"getReviews"} {"action":"createPost","content":"text"}'
+    + ' {"action":"replyReview","reviewId":"...","reply":"text"} {"action":"updateHours","hours":{"MONDAY":{"open":"09:00","close":"17:00"}}}'
     + ' {"action":"updateSpecialHours","specialHours":[{"date":"YYYY-MM-DD","closed":true}]}'
     + ' {"action":"updateDescription","description":"text max 750 chars"}'
-    + ' {"action":"getProfile"}'
-    + ' Always draft posts and replies for approval before publishing. Never publish without showing draft first.';
+    + ' Always show post and reply drafts for approval. Never publish without explicit confirmation.';
 
   var codeInstr = 'CODE MODE: 1) Start "Code Mode — [what]" 2) Explain before code 3) Full file only 4) No action without yes/confirmed 5) Never assume structure 6) Never hallucinate paths.'
     + ' [ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]'
@@ -1310,6 +1307,23 @@ function reasoningGate(text) {
   }
   if (/^what (mode|modes?)/.test(t))
     return currentMode === 'code' ? 'Code Mode — strict execution.' : 'Strategic Mode — planning and thinking.';
+  // GBP quick commands — fire directly without full LLM round-trip
+  if (/get.*gbp.*accounts?|get.*my.*accounts?.*gbp|list.*gbp.*accounts?/i.test(t)) {
+    handleGBPAction({ action: 'getAccounts' });
+    return '__ASYNC__';
+  }
+  if (/get.*gbp.*locations?|list.*gbp.*locations?/i.test(t)) {
+    handleGBPAction({ action: 'getLocations' });
+    return '__ASYNC__';
+  }
+  if (/get.*my.*reviews?|show.*my.*reviews?|list.*reviews?/i.test(t)) {
+    handleGBPAction({ action: 'getReviews' });
+    return '__ASYNC__';
+  }
+  if (/get.*my.*gbp.*profile|show.*gbp.*profile|gbp.*profile/i.test(t)) {
+    handleGBPAction({ action: 'getProfile' });
+    return '__ASYNC__';
+  }
   // "what do you know about me" — fetch readable profile summary from /api/learn
   if (/what.*(know|learned|learn|remember|know about|figured out|noticed|observed).*(me|my|about me|about you)/i.test(t)
       || /what.*my.*profile/i.test(t)
@@ -1493,7 +1507,8 @@ async function gbpAPI(payload) {
   catch(e) { throw new Error('GBP API invalid response: ' + text.slice(0, 120)); }
   if (r.status === 401) {
     if (data.needsAuth) {
-      addAI('Your Google Business Profile is not connected yet. <a href="/api/gbp-auth?user=' + (get('userName','admin') || 'admin').toLowerCase() + '" target="_blank" style="color:var(--accent)">Click here to connect it</a> — it takes 30 seconds.');
+      var authUrl = window.location.origin + '/api/gbp-auth?user=' + (get('userName','admin') || 'admin').toLowerCase();
+      addAI('Your Google Business Profile is not connected yet. <a href="' + authUrl + '" target="_blank" style="color:var(--accent)">Click here to connect it</a> — it takes 30 seconds.');
       return null;
     }
     handleSessionExpiry();
