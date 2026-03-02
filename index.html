@@ -1210,7 +1210,16 @@ function sysPrompt() {
     + aboutLine + ' ' + prefsLine + factLine
     + (adaptiveCtx ? ' ' + adaptiveCtx : '');
 
-  var strategicInstr = 'STRATEGIC MODE: Senior strategist+technologist. Think deeply, surface insights unprompted, concrete actionable advice. Warm, witty. Say "Switching to Code Mode" when appropriate.';
+  var strategicInstr = 'STRATEGIC MODE: Senior strategist+technologist. Think deeply, surface insights unprompted, concrete actionable advice. Warm, witty. Say "Switching to Code Mode" when appropriate.'
+    + ' Google Business Profile (Eritage ENT Care): use [ACTION:GBP]{...}[/ACTION:GBP] for:'
+    + ' {"action":"createPost","content":"post text up to 1500 chars","callToAction":"optional CTA text"}'
+    + ' {"action":"getReviews"}'
+    + ' {"action":"replyReview","reviewId":"...","reply":"reply text"}'
+    + ' {"action":"updateHours","hours":{"MONDAY":{"open":"09:00","close":"17:00"},...}}'
+    + ' {"action":"updateSpecialHours","specialHours":[{"date":"YYYY-MM-DD","closed":true}]}'
+    + ' {"action":"updateDescription","description":"text max 750 chars"}'
+    + ' {"action":"getProfile"}'
+    + ' Always draft posts and replies for approval before publishing. Never publish without showing draft first.';
 
   var codeInstr = 'CODE MODE: 1) Start "Code Mode — [what]" 2) Explain before code 3) Full file only 4) No action without yes/confirmed 5) Never assume structure 6) Never hallucinate paths.'
     + ' [ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]'
@@ -1466,6 +1475,28 @@ async function githubAPI(payload) {
   catch(e) { throw new Error('GitHub API invalid response: ' + text.slice(0, 120)); }
   if (r.status === 401) { handleSessionExpiry(); throw new Error('Session expired — please log in again.'); }
   if (!r.ok) throw new Error(data.error || 'GitHub HTTP ' + r.status);
+  return data;
+}
+
+async function gbpAPI(payload) {
+  var r = await fetch('/api/gbp', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
+    body:    JSON.stringify(payload),
+  });
+  var text = await r.text();
+  var data;
+  try { data = text ? JSON.parse(text) : {}; }
+  catch(e) { throw new Error('GBP API invalid response: ' + text.slice(0, 120)); }
+  if (r.status === 401) {
+    if (data.needsAuth) {
+      addAI('Your Google Business Profile is not connected yet. <a href="/api/gbp-auth?user=' + (get('userName','admin') || 'admin').toLowerCase() + '" target="_blank" style="color:var(--accent)">Click here to connect it</a> — it takes 30 seconds.');
+      return null;
+    }
+    handleSessionExpiry();
+    throw new Error('Session expired.');
+  }
+  if (!r.ok) throw new Error(data.error || 'GBP HTTP ' + r.status);
   return data;
 }
 
@@ -1753,6 +1784,143 @@ async function handleResponse(raw, msgEl) {
     addAI('<strong>Ready to deploy ' + cnt + ' file(s) to <code>' + action.repo + '</code></strong><br/><br/>'
       + '<button class="action-btn green" onclick="confirmDeploy(this,\'' + safe + '\')">Yes, deploy</button>'
       + '<button class="action-btn red" onclick="this.closest(\'.msg-wrap\').remove()">Cancel</button>');
+  }
+
+  // Handle GBP action — draft/approve flow
+  if (gbpMatch) {
+    var gbpAction;
+    try { gbpAction = safeParseJSON(gbpMatch[1]); }
+    catch(e) { addAI('GBP action had malformed JSON. Please try again.'); return; }
+    handleGBPAction(gbpAction);
+  }
+}
+
+
+// ═══════════════════════════════════════════════════════
+// GBP ACTION HANDLERS
+// ═══════════════════════════════════════════════════════
+
+// Use event delegation for GBP buttons to avoid quote escaping issues
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-gbp-action]');
+  if (!btn) return;
+  var type = btn.getAttribute('data-gbp-action');
+  var raw  = btn.getAttribute('data-gbp-payload') || '{}';
+  var action;
+  try { action = JSON.parse(raw); } catch(err) { return; }
+  if (type === 'post')    confirmGBPPost(btn, action);
+  if (type === 'confirm') confirmGBPAction(btn, action);
+  if (type === 'discard') btn.closest('.msg-wrap').remove();
+});
+
+async function handleGBPAction(action) {
+  var payload = JSON.stringify(action);
+
+  if (action.action === 'createPost') {
+    var el = addAI(
+      '<div style="border-left:3px solid var(--accent);padding-left:14px;margin-bottom:12px;">'
+      + '<div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">&#x1F4DD; Draft GBP post</div>'
+      + '<div style="font-size:15px;line-height:1.85;color:var(--text)">' + esc(action.content) + '</div>'
+      + (action.callToAction ? '<div style="margin-top:8px;font-size:12px;color:var(--text3)">CTA: ' + esc(action.callToAction) + '</div>' : '')
+      + '</div>'
+    );
+    var btnRow = document.createElement('div');
+    var pub = document.createElement('button');
+    pub.className = 'action-btn green';
+    pub.setAttribute('data-gbp-action', 'post');
+    pub.innerHTML = '&#x2713; Publish to Google';
+    var dis = document.createElement('button');
+    dis.className = 'action-btn red';
+    dis.setAttribute('data-gbp-action', 'discard');
+    dis.innerHTML = '&#x2715; Discard';
+    btnRow.appendChild(pub); btnRow.appendChild(dis);
+    // Store payload on buttons
+    pub.setAttribute('data-gbp-payload', payload);
+    el.querySelector('.bubble').appendChild(btnRow);
+    return;
+  }
+
+  if (action.action === 'replyReview') {
+    var el2 = addAI(
+      '<div style="border-left:3px solid var(--amber);padding-left:14px;margin-bottom:12px;">'
+      + '<div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">&#x1F4AC; Draft review reply</div>'
+      + '<div style="font-size:15px;line-height:1.85;">' + esc(action.reply) + '</div>'
+      + '</div>'
+    );
+    var br2 = document.createElement('div');
+    var ok2 = document.createElement('button');
+    ok2.className = 'action-btn green'; ok2.setAttribute('data-gbp-action','confirm');
+    ok2.setAttribute('data-gbp-payload', payload); ok2.innerHTML = '&#x2713; Post reply';
+    var no2 = document.createElement('button');
+    no2.className = 'action-btn red'; no2.setAttribute('data-gbp-action','discard'); no2.innerHTML = '&#x2715; Discard';
+    br2.appendChild(ok2); br2.appendChild(no2);
+    el2.querySelector('.bubble').appendChild(br2);
+    return;
+  }
+
+  if (action.action === 'updateHours' || action.action === 'updateSpecialHours' || action.action === 'updateDescription') {
+    var label   = action.action === 'updateHours'        ? 'Update regular hours'
+                : action.action === 'updateSpecialHours' ? 'Set special/holiday hours'
+                : 'Update business description';
+    var preview = action.description || JSON.stringify(action.hours || action.specialHours, null, 2);
+    var el3 = addAI(
+      '<div style="border-left:3px solid var(--green);padding-left:14px;margin-bottom:12px;">'
+      + '<div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">&#x1F4CB; ' + label + '</div>'
+      + '<pre style="font-size:12px;background:var(--code-bg);padding:10px;border-radius:8px;overflow-x:auto;white-space:pre-wrap;">' + esc(preview) + '</pre>'
+      + '</div>'
+    );
+    var br3 = document.createElement('div');
+    var ok3 = document.createElement('button');
+    ok3.className = 'action-btn green'; ok3.setAttribute('data-gbp-action','confirm');
+    ok3.setAttribute('data-gbp-payload', payload); ok3.innerHTML = '&#x2713; Apply to Google';
+    var no3 = document.createElement('button');
+    no3.className = 'action-btn red'; no3.setAttribute('data-gbp-action','discard'); no3.innerHTML = '&#x2715; Cancel';
+    br3.appendChild(ok3); br3.appendChild(no3);
+    el3.querySelector('.bubble').appendChild(br3);
+    return;
+  }
+
+  // Read-only — execute and summarise
+  showWhisper('Fetching from Google Business...');
+  var result = await gbpAPI(action);
+  hideWhisper();
+  if (!result) return;
+  var followUp = 'Google Business Profile data:\n' + JSON.stringify(result, null, 2) + '\n\nPresent this clearly and concisely in plain language.';
+  var readEl = addAI('');
+  var readBubble = readEl.querySelector('.bubble');
+  var buf = '', cur = document.createElement('span');
+  cur.className = 'cursor'; readBubble.appendChild(cur);
+  showWhisper('Summarising...');
+  await callAI(followUp, function(chunk) {
+    buf += chunk; hideWhisper();
+    readBubble.innerHTML = fmt(buf); readBubble.appendChild(cur); scrollBot();
+  });
+  readBubble.innerHTML = fmt(buf);
+}
+
+async function confirmGBPPost(btn, action) {
+  btn.parentNode.innerHTML = '<em>Publishing...</em>';
+  showWhisper('Publishing to Google Business...');
+  var result = await gbpAPI(action);
+  hideWhisper();
+  if (result && result.success) {
+    addAI('&#x2705; <strong>Post published</strong> to Eritage ENT Care on Google. It will appear within a few minutes.');
+  }
+}
+
+async function confirmGBPAction(btn, action) {
+  btn.parentNode.innerHTML = '<em>Applying...</em>';
+  showWhisper('Updating Google Business Profile...');
+  var result = await gbpAPI(action);
+  hideWhisper();
+  if (result && result.success) {
+    var msgs = {
+      replyReview:        '&#x2705; <strong>Review reply posted</strong> on Google.',
+      updateHours:        '&#x2705; <strong>Business hours updated</strong> on Google.',
+      updateSpecialHours: '&#x2705; <strong>Special hours set</strong> on Google.',
+      updateDescription:  '&#x2705; <strong>Business description updated</strong> on Google.',
+    };
+    addAI(msgs[action.action] || '&#x2705; Done.');
   }
 }
 
