@@ -400,12 +400,20 @@ html.light .input-area{background:rgba(245,245,248,0.85);}
   width:7px;height:7px;border-radius:50%;flex-shrink:0;
   transition:background 0.3s;
 }
+.overlay{
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.75);
+  display:none;align-items:center;justify-content:center;
+  z-index:2000;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+  padding:20px;
+}
 .overlay.open{display:flex;}
 .settings-panel{
-  background:rgba(13,13,17,0.98);border:1px solid rgba(255,255,255,0.07);
-  border-radius:24px;
-  width:min(480px,92vw);max-height:88vh;overflow-y:auto;padding:28px 24px 24px;
-  box-shadow:0 40px 100px rgba(0,0,0,0.8),0 0 0 1px rgba(255,255,255,0.04),0 0 60px rgba(124,106,247,0.04);
+  background:var(--bg2);border:1px solid var(--border);
+  border-radius:20px;
+  width:min(440px,94vw);max-height:86vh;overflow-y:auto;
+  padding:24px 20px 20px;
+  box-shadow:0 32px 80px rgba(0,0,0,0.7),0 0 0 1px rgba(124,106,247,0.08);
   scrollbar-width:none;
 }
 
@@ -426,7 +434,7 @@ html.light .input-area{background:rgba(245,245,248,0.85);}
 .field-input:focus{border-color:var(--accent);}
 .field-input::placeholder{color:var(--text3);}
 textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
-.settings-section{margin-bottom:2px;}
+.settings-section{margin-bottom:8px;}
 .settings-row{
   display:flex;align-items:center;justify-content:space-between;
   padding:13px 16px;border-radius:12px;cursor:pointer;
@@ -549,7 +557,33 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
   <!-- SIDEBAR -->
   <div class="sidebar" id="sidebar">
     <div class="sidebar-top">
-      <div class="synapse-wordmark">⬡ SYNAPSE</div>
+      <div class="synapse-wordmark" style="display:flex;align-items:center;gap:8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="28" height="28" style="display:block;">
+  <defs>
+    <linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a78bfa"/>
+      <stop offset="100%" style="stop-color:#60a5fa"/>
+    </linearGradient>
+  </defs>
+  <!-- Hexagon outline -->
+  <polygon points="20,2 35,10.5 35,29.5 20,38 5,29.5 5,10.5"
+    fill="none" stroke="url(#sg)" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Neural nodes -->
+  <circle cx="20" cy="20" r="3" fill="url(#sg)"/>
+  <circle cx="12" cy="15" r="2" fill="url(#sg)" opacity="0.8"/>
+  <circle cx="28" cy="15" r="2" fill="url(#sg)" opacity="0.8"/>
+  <circle cx="12" cy="25" r="2" fill="url(#sg)" opacity="0.6"/>
+  <circle cx="28" cy="25" r="2" fill="url(#sg)" opacity="0.6"/>
+  <!-- Connections -->
+  <line x1="20" y1="20" x2="12" y2="15" stroke="url(#sg)" stroke-width="1" opacity="0.5"/>
+  <line x1="20" y1="20" x2="28" y2="15" stroke="url(#sg)" stroke-width="1" opacity="0.5"/>
+  <line x1="20" y1="20" x2="12" y2="25" stroke="url(#sg)" stroke-width="1" opacity="0.4"/>
+  <line x1="20" y1="20" x2="28" y2="25" stroke="url(#sg)" stroke-width="1" opacity="0.4"/>
+  <line x1="12" y1="15" x2="28" y2="15" stroke="url(#sg)" stroke-width="0.8" opacity="0.3"/>
+  <line x1="12" y1="25" x2="28" y2="25" stroke="url(#sg)" stroke-width="0.8" opacity="0.3"/>
+</svg>
+        <span>SYNAPSE</span>
+      </div>
       <button class="new-chat-btn" onclick="newChat()">
         <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         New chat
@@ -577,9 +611,35 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
     <div class="topbar">
       <div class="topbar-left">
         <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
-        <div>
-          <div class="agent-title" id="agentTitle">SYNAPSE</div>
-          <div class="agent-subtitle" id="agentSubtitle">Your Intelligent Agent</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="28" height="28" style="display:block;">
+  <defs>
+    <linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a78bfa"/>
+      <stop offset="100%" style="stop-color:#60a5fa"/>
+    </linearGradient>
+  </defs>
+  <!-- Hexagon outline -->
+  <polygon points="20,2 35,10.5 35,29.5 20,38 5,29.5 5,10.5"
+    fill="none" stroke="url(#sg)" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Neural nodes -->
+  <circle cx="20" cy="20" r="3" fill="url(#sg)"/>
+  <circle cx="12" cy="15" r="2" fill="url(#sg)" opacity="0.8"/>
+  <circle cx="28" cy="15" r="2" fill="url(#sg)" opacity="0.8"/>
+  <circle cx="12" cy="25" r="2" fill="url(#sg)" opacity="0.6"/>
+  <circle cx="28" cy="25" r="2" fill="url(#sg)" opacity="0.6"/>
+  <!-- Connections -->
+  <line x1="20" y1="20" x2="12" y2="15" stroke="url(#sg)" stroke-width="1" opacity="0.5"/>
+  <line x1="20" y1="20" x2="28" y2="15" stroke="url(#sg)" stroke-width="1" opacity="0.5"/>
+  <line x1="20" y1="20" x2="12" y2="25" stroke="url(#sg)" stroke-width="1" opacity="0.4"/>
+  <line x1="20" y1="20" x2="28" y2="25" stroke="url(#sg)" stroke-width="1" opacity="0.4"/>
+  <line x1="12" y1="15" x2="28" y2="15" stroke="url(#sg)" stroke-width="0.8" opacity="0.3"/>
+  <line x1="12" y1="25" x2="28" y2="25" stroke="url(#sg)" stroke-width="0.8" opacity="0.3"/>
+</svg>
+          <div>
+            <div class="agent-title" id="agentTitle">SYNAPSE</div>
+            <div class="agent-subtitle" id="agentSubtitle">Perpetual Intelligence</div>
+          </div>
         </div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;">
@@ -593,7 +653,21 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
 
     <div class="messages" id="messages">
       <div class="welcome" id="welcomeScreen">
-        <div class="welcome-logo">🤖</div>
+        <div class="welcome-logo" style="background:none;-webkit-text-fill-color:initial;margin-bottom:20px;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="56" height="56" style="animation:synapsePulse 3s ease-in-out infinite;">
+            <defs><linearGradient id="wlg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#a78bfa"/><stop offset="100%" style="stop-color:#60a5fa"/></linearGradient></defs>
+            <polygon points="20,2 35,10.5 35,29.5 20,38 5,29.5 5,10.5" fill="rgba(124,106,247,0.08)" stroke="url(#wlg)" stroke-width="2" stroke-linejoin="round"/>
+            <circle cx="20" cy="20" r="4" fill="url(#wlg)"/>
+            <circle cx="12" cy="15" r="2.5" fill="url(#wlg)" opacity="0.75"/>
+            <circle cx="28" cy="15" r="2.5" fill="url(#wlg)" opacity="0.75"/>
+            <circle cx="12" cy="25" r="2.5" fill="url(#wlg)" opacity="0.55"/>
+            <circle cx="28" cy="25" r="2.5" fill="url(#wlg)" opacity="0.55"/>
+            <line x1="20" y1="20" x2="12" y2="15" stroke="url(#wlg)" stroke-width="1.5" opacity="0.5"/>
+            <line x1="20" y1="20" x2="28" y2="15" stroke="url(#wlg)" stroke-width="1.5" opacity="0.5"/>
+            <line x1="20" y1="20" x2="12" y2="25" stroke="url(#wlg)" stroke-width="1.5" opacity="0.4"/>
+            <line x1="20" y1="20" x2="28" y2="25" stroke="url(#wlg)" stroke-width="1.5" opacity="0.4"/>
+          </svg>
+        </div>
         <h1 id="welcomeTitle">Good morning, Fahad</h1>
         <p>Your personal cognitive extension. I think, plan, build, and deploy — just tell me what you need.</p>
         <div class="suggestions">
@@ -635,8 +709,9 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
       <div class="settings-section">
         <label class="field-label">AI Brain</label>
         <select class="field-input" id="s_brain">
+          <option value="auto">⚡ Auto (Smart routing — recommended)</option>
+          <option value="claude">Anthropic Claude Sonnet 4.6 ✦</option>
           <option value="gemini">Google Gemini 2.5 Flash (Free)</option>
-          <option value="claude">Anthropic Claude Sonnet 4.6 &#x2728;</option>
           <option value="openai">OpenAI GPT-4o-mini</option>
         </select>
       </div>
@@ -662,42 +737,10 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
           e.g. <em style="color:var(--text2)">"fix the bug in my agent repo"</em>
         </div>
       </div>
-      <!-- Collapsible: About You -->
-      <div class="settings-section">
-        <div class="settings-row" onclick="toggleSection('sec-about',this)">
-          <span class="settings-row-title">About You &amp; Projects</span>
-          <span class="settings-row-chevron">▾</span>
-        </div>
-        <div class="settings-collapsible" id="sec-about">
-          <textarea class="field-input" id="s_about" style="margin-top:4px;" placeholder="I'm a Clinical Otolaryngologist running Eritage ENT Care in Uganda..."></textarea>
-        </div>
-      </div>
-
-      <!-- Collapsible: Preferences -->
-      <div class="settings-section">
-        <div class="settings-row" onclick="toggleSection('sec-prefs',this)">
-          <span class="settings-row-title">Preferences</span>
-          <span class="settings-row-chevron">▾</span>
-        </div>
-        <div class="settings-collapsible" id="sec-prefs">
-          <textarea class="field-input" id="s_prefs" style="margin-top:4px;" placeholder="Be direct. No jargon. Explain before acting..."></textarea>
-        </div>
-      </div>
-
-      <!-- Collapsible: Learned Facts -->
-      <div class="settings-section">
-        <div class="settings-row" onclick="toggleSection('sec-facts',this)">
-          <span class="settings-row-title">Learned Facts</span>
-          <span class="settings-row-chevron">▾</span>
-        </div>
-        <div class="settings-collapsible" id="sec-facts">
-          <div class="memory-box" id="memoryBox" style="margin-top:4px;">Nothing saved yet.</div>
-          <div class="btn-row" style="margin-top:8px;">
-            <button class="clear-btn" onclick="clearMemory()">&#x1F5D1; Clear facts</button>
-            <button class="clear-btn" onclick="clearAllChats()">&#x1F5D1; Clear all chats</button>
-          </div>
-        </div>
-      </div>
+      <!-- Hidden inputs kept for JS compatibility — not shown in UI -->
+      <input type="hidden" id="s_about"/>
+      <input type="hidden" id="s_prefs"/>
+      <div style="display:none" id="memoryBox"></div>
 
       <!-- Collapsible: Adaptive Profile -->
       <div class="settings-section">
@@ -727,7 +770,24 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
   <!-- LOGIN SCREEN (shown when not authenticated) -->
   <div class="login-screen" id="loginScreen">
     <div class="login-card">
-      <div class="login-logo" style="font-family:'Syne',sans-serif;font-size:30px;font-weight:800;background:linear-gradient(135deg,#a78bfa,#7c6af7,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-0.02em;margin-bottom:6px;">⬡ SYNAPSE</div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="48" height="48">
+          <defs><linearGradient id="slg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#a78bfa"/><stop offset="100%" style="stop-color:#60a5fa"/></linearGradient></defs>
+          <polygon points="20,2 35,10.5 35,29.5 20,38 5,29.5 5,10.5" fill="none" stroke="url(#slg)" stroke-width="2.5" stroke-linejoin="round"/>
+          <circle cx="20" cy="20" r="3.5" fill="url(#slg)"/>
+          <circle cx="12" cy="15" r="2.2" fill="url(#slg)" opacity="0.8"/>
+          <circle cx="28" cy="15" r="2.2" fill="url(#slg)" opacity="0.8"/>
+          <circle cx="12" cy="25" r="2.2" fill="url(#slg)" opacity="0.6"/>
+          <circle cx="28" cy="25" r="2.2" fill="url(#slg)" opacity="0.6"/>
+          <line x1="20" y1="20" x2="12" y2="15" stroke="url(#slg)" stroke-width="1.2" opacity="0.5"/>
+          <line x1="20" y1="20" x2="28" y2="15" stroke="url(#slg)" stroke-width="1.2" opacity="0.5"/>
+          <line x1="20" y1="20" x2="12" y2="25" stroke="url(#slg)" stroke-width="1.2" opacity="0.4"/>
+          <line x1="20" y1="20" x2="28" y2="25" stroke="url(#slg)" stroke-width="1.2" opacity="0.4"/>
+          <line x1="12" y1="15" x2="28" y2="15" stroke="url(#slg)" stroke-width="0.8" opacity="0.25"/>
+          <line x1="12" y1="25" x2="28" y2="25" stroke="url(#slg)" stroke-width="0.8" opacity="0.25"/>
+        </svg>
+        <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;background:linear-gradient(135deg,#a78bfa,#7c6af7,#60a5fa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:-0.02em;">SYNAPSE</div>
+      </div>
       <div class="login-title">Agent Access</div>
       <div class="login-sub">Your perpetual intelligence — private workspace.</div>
       <div class="login-error" id="loginError"></div>
@@ -745,6 +805,10 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
       </div>
       <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign in</button>
       <div class="login-footer">SYNAPSE &middot; Private Agent</div>
+      <div style="margin-top:18px;text-align:center;line-height:2;">
+        <div style="font-style:italic;font-size:10px;color:var(--text3);letter-spacing:0.04em;">Designed by Fahad Juma</div>
+        <div style="font-size:10px;color:var(--text3);letter-spacing:0.06em;opacity:0.6;">V2.0 &nbsp;·&nbsp; 2026</div>
+      </div>
     </div>
   </div>
 
@@ -1345,8 +1409,9 @@ function updateStatus() {
   var n  = get('userName', '');
   var rn = get('repo1name', '');
   var activeRepo = get('repo1name', '') || (get('repo1','').split('/')[1] || '');
-  var brainLabels = { gemini: 'Gemini', claude: 'Claude', openai: 'GPT-4o' };
-  var brainName   = brainLabels[get('brain','claude')] || 'Claude';
+  var brainLabels = { auto: 'Auto', gemini: 'Gemini', claude: 'Claude', openai: 'GPT-4o' };
+  var activeBrain = window._lastBrainUsed || get('brain','auto');
+  var brainName   = brainLabels[activeBrain] || 'Auto';
   document.getElementById('statusDot').className    = 'status-dot ready';
   document.getElementById('statusText').textContent = 'Ready · ' + brainName + (activeRepo ? ' · ' + activeRepo : '') + (n ? ' · ' + n : '');
   if (n) {
@@ -1454,6 +1519,21 @@ function sysPrompt() {
   var factLine  = facts.length ? ' Known: ' + facts.slice(-10).map(function(f) { return f.slice(0, 80); }).join('; ') : '';
 
   // Inject adaptive profile if available
+  // Build recall context from recent cloud sessions
+  var recallCtx = '';
+  try {
+    var allSessions = get('sessions', []);
+    if (allSessions.length > 1) {
+      var prevMsgs = [];
+      allSessions.slice(1, 4).forEach(function(s) {
+        if (s.messages && s.messages.length) {
+          var firstUser = s.messages.find(function(m){ return m.role === 'user'; });
+          if (firstUser) prevMsgs.push('"' + firstUser.content.slice(0,80) + '"');
+        }
+      });
+      if (prevMsgs.length) recallCtx = ' Past sessions included: ' + prevMsgs.join('; ') + '.';
+    }
+  } catch(e) {}
   var adaptiveCtx = '';
   if (_adaptiveProfile) {
     adaptiveCtx = buildAdaptiveContext(_adaptiveProfile);
@@ -1489,7 +1569,7 @@ function sysPrompt() {
 
   var memRule = ' Store facts: [MEMORY]fact[/MEMORY]';
 
-  return base + '\n' + (mode === 'code' ? codeInstr : strategicInstr) + memRule;
+  return base + recallCtx + '\n' + (mode === 'code' ? codeInstr : strategicInstr) + memRule;
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1662,11 +1742,66 @@ function hideWhisper() {
   if (w) { w.classList.remove('show'); w.textContent = ''; }
 }
 
+// ── BRAIN COMPLEXITY SCORER ──────────────────────────────────────────────────
+// Returns 'simple' or 'complex' — drives auto brain selection
+function scoreComplexity(msg, history) {
+  if (!msg) return 'simple';
+  var m = msg.toLowerCase();
+  var len = msg.length;
+
+  // Always Claude: code, deployment, deep strategy, analysis, GBP actions
+  var deepPatterns = [
+    /(code|deploy|debug|fix the|error|build|create|write|generate|analyse|analysis|strategy|plan|compare|explain why|how does|what should|optimis|improve|review|audit|diagnosis|predict|research)/i,
+    /(github|vercel|supabase|api|function|database|sql|html|css|javascript|python)/i,
+    /(why|how|should i|what do you think|recommend|advise|best way|complex|difficult|thorough)/i,
+  ];
+  for (var i = 0; i < deepPatterns.length; i++) {
+    if (deepPatterns[i].test(m)) return 'complex';
+  }
+
+  // Always Claude: long messages
+  if (len > 200) return 'complex';
+
+  // Always Claude: if history shows an ongoing complex thread
+  if (history.length >= 4) {
+    var recentText = history.slice(-4).map(function(h) { return h.content; }).join(' ');
+    if (/code|deploy|debug|build|error|function|strategy|analyse/i.test(recentText)) return 'complex';
+  }
+
+  // Simple: short greetings, lookups, basic questions, status checks
+  var simplePatterns = [
+    /^(hi|hello|hey|thanks|thank you|ok|got it|sounds good|nice|great|perfect|yes|no|sure)/i,
+    /^(what is|what's|who is|when|where|show me|list|get|fetch|find)/i,
+    /^(what time|what day|what date|remind|schedule)/i,
+  ];
+  for (var j = 0; j < simplePatterns.length; j++) {
+    if (simplePatterns[j].test(m)) return 'simple';
+  }
+
+  // Default short messages → Gemini, medium+ → Claude
+  return len < 100 ? 'simple' : 'complex';
+}
+
 // ── STREAMING callAI ─────────────────────────────────────────────────────────
 // Returns the full accumulated text when the stream ends.
 // Calls onChunk(text) with each incremental piece so the UI can render live.
 async function callAI(userMsg, onChunk) {
-  var provider = get('brain', 'claude');
+  // Smart brain routing — auto-select optimal model per task
+  var manualBrain = get('brain', 'auto');
+  var provider;
+  if (manualBrain === 'auto' || manualBrain === 'claude') {
+    // Score complexity: route simple queries to Gemini (free), complex to Claude
+    var complexity = scoreComplexity(userMsg, getCompactHistory());
+    if (complexity === 'simple' && !isGeminiLimited()) {
+      provider = 'gemini';
+      console.log('[brain] auto→gemini (simple)');
+    } else {
+      provider = 'claude';
+      console.log('[brain] auto→claude (complex, score:', complexity + ')');
+    }
+  } else {
+    provider = manualBrain;
+  }
   var history  = getCompactHistory();
   if (provider === 'gemini' && isGeminiLimited()) { var e = new Error('quota'); e.isQuota = true; throw e; }
 
@@ -1676,6 +1811,7 @@ async function callAI(userMsg, onChunk) {
   totalTokensUsed += est;
   console.log('[tokens] est input:', est, '| session total:', totalTokensUsed);
 
+  window._lastBrainUsed = provider;
   var r = await fetch('/api/ai', {
     method:  'POST',
     headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
