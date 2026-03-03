@@ -134,40 +134,35 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px;}
 
 .msg-wrap{
-  padding:18px 0;display:flex;gap:16px;
-  width:100%;max-width:760px;margin:0 auto;
-  padding-left:24px;padding-right:24px;
+  padding:14px 0;display:flex;
+  width:100%;max-width:820px;margin:0 auto;
+  padding-left:20px;padding-right:20px;
 }
-.msg-wrap.user{flex-direction:row-reverse;}
+.msg-wrap.user{justify-content:flex-end;}
 .msg-wrap + .msg-wrap.ai{border-top:none;}
 
-.msg-avatar{
-  width:32px;height:32px;border-radius:50%;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;font-size:15px;
-  margin-top:2px;
-}
-.msg-wrap.ai .msg-avatar{background:var(--accent2);}
-.msg-wrap.user .msg-avatar{background:var(--bg4);border:1px solid var(--border2);}
+/* Avatars removed — pure text layout */
+.msg-avatar{display:none;}
 
-/* AI messages: no bubble — just text, full width */
+/* AI messages: full width, no bubble */
 .bubble{
-  flex:1;font-size:15px;line-height:1.85;word-break:break-word;
+  flex:1;font-size:15.5px;line-height:1.9;word-break:break-word;
   color:var(--text);min-width:0;
 }
 .msg-wrap.user .bubble{
-  background:var(--bg3);border:1px solid var(--border);
-  border-radius:18px 18px 4px 18px;
-  padding:12px 18px;font-size:15px;
-  max-width:80%;flex:0 1 auto;
+  background:var(--bg3);border:1px solid rgba(255,255,255,0.07);
+  border-radius:20px 20px 4px 20px;
+  padding:13px 20px;font-size:15px;
+  max-width:75%;flex:0 1 auto;
 }
 .msg-wrap.ai .bubble{
   background:transparent;border:none;padding:0;
 }
 .bubble strong{color:var(--text);font-weight:600;}
 .bubble em{color:var(--text2);}
-.bubble a{color:var(--accent);text-decoration:none;}
-.bubble a:hover{text-decoration:underline;}
-.bubble p{margin:0 0 10px;} .bubble p:last-child{margin-bottom:0;}
+.bubble a{color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(124,106,247,0.3);transition:border-color 0.15s;}
+.bubble a:hover{border-color:var(--accent);}
+.bubble p{margin:0 0 12px;} .bubble p:last-child{margin-bottom:0;}
 .bubble code{
   background:var(--code-bg);border:1px solid var(--border);
   padding:2px 7px;border-radius:5px;font-family:'JetBrains Mono',monospace;
@@ -188,17 +183,35 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 .bubble ul,.bubble ol{padding-left:22px;margin:8px 0;}
 .bubble li{margin:4px 0;}
 
-/* Status whisper — faint 1-liner shown while agent is working */
+/* Status whisper — true screen center, Lovable/Claude execution style */
 .whisper{
-  width:100%;max-width:760px;margin:0 auto;
-  padding:4px 24px 4px 72px;
-  font-size:11.5px;color:var(--text3);
+  position:fixed;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  background:rgba(10,10,14,0.96);
+  border:1px solid rgba(124,106,247,0.2);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-radius:100px;
+  padding:10px 24px 10px 16px;
+  font-size:13px;color:rgba(255,255,255,0.75);
   font-style:italic;letter-spacing:0.01em;
-  animation:whisperPulse 1.4s ease-in-out infinite;
+  white-space:nowrap;
+  pointer-events:none;
+  z-index:9999;
   display:none;
+  box-shadow:0 20px 60px rgba(0,0,0,0.7),0 0 0 1px rgba(124,106,247,0.15),0 0 40px rgba(124,106,247,0.06);
+  gap:10px;align-items:center;
 }
-.whisper.show{display:block;}
-@keyframes whisperPulse{0%,100%{opacity:0.5;}50%{opacity:1;}}
+.whisper.show{display:flex;}
+.whisper::before{
+  content:'';width:7px;height:7px;border-radius:50%;
+  background:var(--accent);flex-shrink:0;
+  box-shadow:0 0 8px var(--accent);
+  animation:whisperDot 1.4s ease-in-out infinite;
+}
+@keyframes whisperIn{from{opacity:0;transform:translate(-50%,-50%) scale(0.88);}to{opacity:1;transform:translate(-50%,-50%) scale(1);}}
+@keyframes whisperPulse{0%,100%{opacity:0.65;}50%{opacity:1;}}
+@keyframes whisperDot{0%,100%{opacity:0.3;transform:scale(0.75);}50%{opacity:1;transform:scale(1.2);}}
 
 /* Streaming cursor blink */
 .cursor{
@@ -219,18 +232,23 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 /* Action buttons */
 .action-btn{
   display:inline-flex;align-items:center;gap:6px;
-  background:var(--accent);color:white;border:none;border-radius:8px;
-  padding:8px 14px;font-family:'JetBrains Mono',monospace;font-size:11px;
-  cursor:pointer;margin-top:10px;margin-right:8px;transition:opacity 0.15s;
+  background:var(--accent);color:white;border:none;border-radius:10px;
+  padding:9px 18px;font-family:'Inter',sans-serif;font-size:13px;font-weight:500;
+  cursor:pointer;margin-top:12px;margin-right:8px;
+  transition:opacity 0.15s,transform 0.1s,box-shadow 0.15s;
+  box-shadow:0 2px 8px rgba(124,106,247,0.25);
 }
-.action-btn:hover{opacity:0.85;}
-.action-btn.green{background:#16a34a;}
-.action-btn.red{background:#dc2626;}
+.action-btn:hover{opacity:0.9;transform:translateY(-1px);box-shadow:0 4px 16px rgba(124,106,247,0.35);}
+.action-btn:active{transform:translateY(0);}
+.action-btn.green{background:#16a34a;box-shadow:0 2px 8px rgba(22,163,74,0.3);}
+.action-btn.green:hover{box-shadow:0 4px 16px rgba(22,163,74,0.4);}
+.action-btn.red{background:#dc2626;box-shadow:0 2px 8px rgba(220,38,38,0.3);}
+.action-btn.red:hover{box-shadow:0 4px 16px rgba(220,38,38,0.4);}
 
 /* Typing */
 .typing-wrap{
   padding:8px 24px;display:flex;gap:16px;
-  max-width:760px;margin:0 auto;width:100%;align-items:center;
+  max-width:820px;margin:0 auto;width:100%;align-items:center;
 }
 .typing-dots{
   display:flex;gap:5px;align-items:center;padding:4px 0;
@@ -280,12 +298,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
   border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;
 }
 .input-box{
-  max-width:800px;margin:0 auto;
-  background:var(--bg2);border:1px solid var(--border2);border-radius:14px;
-  display:flex;align-items:flex-end;gap:8px;padding:8px 8px 8px 16px;
+  max-width:820px;margin:0 auto;
+  background:var(--bg2);border:1px solid var(--border2);border-radius:16px;
+  display:flex;align-items:flex-end;gap:8px;padding:10px 10px 10px 18px;
   transition:border-color 0.2s;
+  box-shadow:0 0 0 0 transparent;
 }
-.input-box:focus-within{border-color:var(--accent);}
+.input-box:focus-within{
+  border-color:rgba(124,106,247,0.5);
+  box-shadow:0 0 0 3px rgba(124,106,247,0.08);
+}
 #userInput{
   flex:1;background:transparent;border:none;color:var(--text);
   font-family:'Inter',sans-serif;font-size:15px;
@@ -293,17 +315,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 }
 #userInput::placeholder{color:var(--text3);}
 .send-btn{
-  width:34px;height:34px;background:var(--accent);border:none;
-  border-radius:9px;cursor:pointer;display:flex;align-items:center;
-  justify-content:center;flex-shrink:0;transition:opacity 0.15s,transform 0.1s;color:white;
+  width:36px;height:36px;background:var(--accent);border:none;
+  border-radius:10px;cursor:pointer;display:flex;align-items:center;
+  justify-content:center;flex-shrink:0;
+  transition:opacity 0.15s,transform 0.1s,box-shadow 0.15s;
+  color:white;box-shadow:0 2px 8px rgba(124,106,247,0.4);
 }
-.send-btn:hover{opacity:0.85;}
+.send-btn:hover{opacity:0.9;transform:translateY(-1px);box-shadow:0 4px 14px rgba(124,106,247,0.5);}
 .send-btn:active{transform:scale(0.93);}
-.send-btn:disabled{opacity:0.25;cursor:not-allowed;transform:none;}
+.send-btn:disabled{opacity:0.2;cursor:not-allowed;transform:none;box-shadow:none;}
 .send-btn svg{width:15px;height:15px;fill:currentColor;}
 
 .status-bar{
-  max-width:800px;margin:0 auto 8px;
+  max-width:860px;margin:0 auto 8px;
   display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text3);
 }
 .status-dot{width:5px;height:5px;border-radius:50%;background:var(--text3);}
@@ -318,24 +342,77 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Inter'
 }
 .overlay.open{display:flex;}
 .settings-panel{
-  background:var(--bg2);border:1px solid var(--border);border-radius:18px;
-  width:min(520px,92vw);max-height:88vh;overflow-y:auto;padding:28px;
+  background:rgba(13,13,17,0.98);border:1px solid rgba(255,255,255,0.07);
+  border-radius:24px;
+  width:min(480px,92vw);max-height:88vh;overflow-y:auto;padding:28px 24px 24px;
+  box-shadow:0 40px 100px rgba(0,0,0,0.8),0 0 0 1px rgba(255,255,255,0.04),0 0 60px rgba(124,106,247,0.04);
+  scrollbar-width:none;
 }
+
 .settings-panel::-webkit-scrollbar{width:3px;}
 .settings-panel::-webkit-scrollbar-thumb{background:var(--border2);}
 .settings-title{font-family:'Inter',sans-serif;font-size:20px;font-weight:700;margin-bottom:4px;}
 .settings-sub{font-size:11px;color:var(--text3);margin-bottom:24px;line-height:1.6;}
 .field-label{font-size:10px;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);margin-bottom:6px;display:block;}
 .field-input{
-  width:100%;background:var(--bg3);border:1px solid var(--border);
-  border-radius:9px;padding:11px 14px;font-family:'JetBrains Mono',monospace;
-  font-size:12px;color:var(--text);outline:none;transition:border-color 0.2s;
-  -webkit-appearance:none;
+  width:100%;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);
+  border-radius:12px;padding:12px 15px;font-family:'Inter',sans-serif;
+  font-size:13px;color:var(--text);outline:none;
+  transition:border-color 0.2s,background 0.2s;
+  -webkit-appearance:none;resize:vertical;
 }
+.field-input:focus{border-color:rgba(124,106,247,0.5);background:rgba(124,106,247,0.04);}
+.field-input::placeholder{color:var(--text3);}
 .field-input:focus{border-color:var(--accent);}
 .field-input::placeholder{color:var(--text3);}
 textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
-.settings-section{margin-bottom:20px;}
+.settings-section{margin-bottom:2px;}
+.settings-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:13px 16px;border-radius:12px;cursor:pointer;
+  background:var(--bg3);border:1px solid var(--border);
+  transition:background 0.15s,border-color 0.15s;
+  user-select:none;
+}
+.settings-row:hover{background:rgba(255,255,255,0.04);border-color:rgba(124,106,247,0.25);}
+.settings-row-title{font-size:13px;font-weight:500;color:var(--text2);letter-spacing:0.01em;}
+.settings-row-chevron{
+  font-size:10px;color:var(--text3);
+  transition:transform 0.25s cubic-bezier(0.16,1,0.3,1);
+  display:inline-block;
+}
+.settings-row.open .settings-row-chevron{transform:rotate(180deg);}
+.settings-collapsible{
+  max-height:0;overflow:hidden;
+  transition:max-height 0.3s cubic-bezier(0.16,1,0.3,1), opacity 0.2s;
+  opacity:0;
+}
+.settings-collapsible.open{max-height:400px;opacity:1;padding-top:8px;}
+
+/* Collapsible settings rows */
+.settings-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:13px 14px;border-radius:10px;cursor:pointer;
+  background:var(--bg3);border:1px solid var(--border);
+  transition:background 0.15s,border-color 0.15s;
+  user-select:none;
+}
+.settings-row:hover{background:var(--bg4);border-color:var(--border2);}
+.settings-row-title{font-size:13px;color:var(--text);font-weight:500;}
+.settings-row-chevron{
+  font-size:10px;color:var(--text3);
+  transition:transform 0.2s;display:inline-block;
+}
+.settings-collapsible{
+  overflow:hidden;max-height:0;
+  transition:max-height 0.28s cubic-bezier(0.4,0,0.2,1),
+             opacity 0.2s ease,padding 0.2s;
+  opacity:0;padding:0 2px;
+}
+.settings-collapsible.open{
+  max-height:600px;opacity:1;padding:10px 2px 6px;
+}
+.settings-row.open .settings-row-chevron{transform:rotate(180deg);}
 
 .secure-note{
   display:flex;align-items:center;gap:8px;
@@ -355,10 +432,14 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
 }
 .clear-btn:hover{border-color:var(--red);color:var(--red);}
 .save-btn{
-  flex:1;background:var(--accent);color:white;border:none;border-radius:9px;
-  padding:13px;font-family:'Inter',sans-serif;font-size:15px;font-weight:600;
-  cursor:pointer;transition:opacity 0.2s;margin-top:16px;
+  width:100%;padding:14px;border-radius:14px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#7c6af7 0%,#9c7cf4 100%);
+  color:#fff;font-size:14px;font-weight:600;letter-spacing:0.01em;
+  margin-top:16px;transition:opacity 0.2s,transform 0.1s;
+  font-family:'Inter',sans-serif;
 }
+.save-btn:hover{opacity:0.9;}
+.save-btn:active{transform:scale(0.99);}
 .save-btn:hover{opacity:0.88;}
 
 /* Mobile sidebar overlay */
@@ -547,31 +628,60 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
           e.g. <em style="color:var(--text2)">"fix the bug in my agent repo"</em>
         </div>
       </div>
+      <!-- Collapsible: About You -->
       <div class="settings-section">
-        <label class="field-label">About You & Your Projects</label>
-        <textarea class="field-input" id="s_about" placeholder="I'm a Clinical Otolaryngologist running Eritage ENT Care in Uganda..."></textarea>
-      </div>
-      <div class="settings-section">
-        <label class="field-label">Preferences</label>
-        <textarea class="field-input" id="s_prefs" placeholder="Be direct. No jargon. Explain before acting..."></textarea>
-      </div>
-      <div class="settings-section">
-        <label class="field-label">Learned Facts (from conversation)</label>
-        <div class="memory-box" id="memoryBox">Nothing saved yet.</div>
-        <div class="btn-row">
-          <button class="clear-btn" onclick="clearMemory()">&#x1F5D1; Clear facts</button>
-          <button class="clear-btn" onclick="clearAllChats()">&#x1F5D1; Clear all chats</button>
+        <div class="settings-row" onclick="toggleSection('sec-about',this)">
+          <span class="settings-row-title">About You &amp; Projects</span>
+          <span class="settings-row-chevron">▾</span>
+        </div>
+        <div class="settings-collapsible" id="sec-about">
+          <textarea class="field-input" id="s_about" style="margin-top:4px;" placeholder="I'm a Clinical Otolaryngologist running Eritage ENT Care in Uganda..."></textarea>
         </div>
       </div>
+
+      <!-- Collapsible: Preferences -->
       <div class="settings-section">
-        <label class="field-label" style="display:flex;align-items:center;gap:6px;">
-          Adaptive Profile
-          <span style="background:rgba(124,106,247,0.15);color:var(--accent);font-size:9px;padding:2px 7px;border-radius:20px;letter-spacing:0.05em;">LIVE · UPDATES DAILY</span>
-        </label>
-        <div class="memory-box" id="profileBox" style="font-size:11px;line-height:1.8;">Not enough interactions yet. Builds over time.</div>
+        <div class="settings-row" onclick="toggleSection('sec-prefs',this)">
+          <span class="settings-row-title">Preferences</span>
+          <span class="settings-row-chevron">▾</span>
+        </div>
+        <div class="settings-collapsible" id="sec-prefs">
+          <textarea class="field-input" id="s_prefs" style="margin-top:4px;" placeholder="Be direct. No jargon. Explain before acting..."></textarea>
+        </div>
       </div>
+
+      <!-- Collapsible: Learned Facts -->
       <div class="settings-section">
-        <button class="clear-btn" style="width:100%;border-color:rgba(124,106,247,0.4);color:var(--accent);" onclick="closeSettings();doLogout()">&#x1F512; Sign out</button>
+        <div class="settings-row" onclick="toggleSection('sec-facts',this)">
+          <span class="settings-row-title">Learned Facts</span>
+          <span class="settings-row-chevron">▾</span>
+        </div>
+        <div class="settings-collapsible" id="sec-facts">
+          <div class="memory-box" id="memoryBox" style="margin-top:4px;">Nothing saved yet.</div>
+          <div class="btn-row" style="margin-top:8px;">
+            <button class="clear-btn" onclick="clearMemory()">&#x1F5D1; Clear facts</button>
+            <button class="clear-btn" onclick="clearAllChats()">&#x1F5D1; Clear all chats</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Collapsible: Adaptive Profile -->
+      <div class="settings-section">
+        <div class="settings-row" onclick="toggleSection('sec-profile',this)">
+          <span class="settings-row-title">Adaptive Profile</span>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span style="background:rgba(124,106,247,0.15);color:var(--accent);font-size:9px;padding:2px 7px;border-radius:20px;letter-spacing:0.05em;">LIVE</span>
+            <span class="settings-row-chevron">▾</span>
+          </span>
+        </div>
+        <div class="settings-collapsible" id="sec-profile">
+          <div class="memory-box" id="profileBox" style="font-size:11px;line-height:1.8;margin-top:4px;">Not enough interactions yet. Builds over time.</div>
+        </div>
+      </div>
+
+      <!-- Sign out -->
+      <div class="settings-section" style="margin-top:8px;">
+        <button class="clear-btn" style="width:100%;border-color:rgba(124,106,247,0.4);color:var(--accent);padding:12px;" onclick="closeSettings();doLogout()">&#x1F512; Sign out</button>
       </div>
       <button class="save-btn" onclick="saveSettings()">Save & close →</button>
     </div>
@@ -824,7 +934,7 @@ function showWeeklyDigestInChat(digest) {
   var d = document.createElement('div');
   d.className = 'msg-wrap ai';
   d.style.animation = 'none';
-  d.innerHTML = '<div class="msg-avatar">&#x1F916;</div>'
+  d.innerHTML = ''
     + '<div class="bubble">'
     + '<div style="font-size:11px;color:var(--text3);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.08em;">&#x1F4C6; Weekly digest — ' + (get('weeklyDigestDate','') || 'this week') + '</div>'
     + fmt(digest)
@@ -1034,6 +1144,14 @@ function openSettings() {
   document.getElementById('settingsOverlay').classList.add('open');
 }
 
+function toggleSection(id, rowEl) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  var isOpen = el.classList.contains('open');
+  el.classList.toggle('open', !isOpen);
+  rowEl.classList.toggle('open', !isOpen);
+}
+
 function closeSettings() { document.getElementById('settingsOverlay').classList.remove('open'); }
 
 function saveSettings() {
@@ -1082,6 +1200,18 @@ function closeSidebar() {
 // ═══════════════════════════════════════════════════════
 // UI HELPERS
 // ═══════════════════════════════════════════════════════
+function toggleSection(id, rowEl) {
+  var col = document.getElementById(id);
+  var row = rowEl.closest ? rowEl.closest('.settings-row') : rowEl;
+  if (!col) return;
+  var isOpen = col.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.settings-collapsible').forEach(function(el) { el.classList.remove('open'); });
+  document.querySelectorAll('.settings-row').forEach(function(el) { el.classList.remove('open'); });
+  // Open clicked if it was closed
+  if (!isOpen) { col.classList.add('open'); if (row) row.classList.add('open'); }
+}
+
 function clearActiveRepo() {
   set('repo1', '');
   set('repo1name', '');
@@ -1164,7 +1294,7 @@ function _addUser(text, animate) {
   var d = document.createElement('div');
   d.className = 'msg-wrap user';
   if (!animate) d.style.animation = 'none';
-  d.innerHTML = '<div class="msg-avatar">&#x1F464;</div><div class="bubble">' + esc(text) + '</div>';
+  d.innerHTML = '<div class="bubble">' + esc(text) + '</div>';
   msgs.appendChild(d); scrollBot();
 }
 function addUser(text) { _addUser(text, true); }
@@ -1174,7 +1304,7 @@ function _addAI(html, animate) {
   var d = document.createElement('div');
   d.className = 'msg-wrap ai';
   if (!animate) d.style.animation = 'none';
-  d.innerHTML = '<div class="msg-avatar">&#x1F916;</div><div class="bubble">' + html + '</div>';
+  d.innerHTML = '<div class="bubble">' + html + '</div>';
   msgs.appendChild(d); scrollBot(); return d;
 }
 function addAI(html) { return _addAI(html, true); }
@@ -1183,7 +1313,7 @@ function showTyping() {
   var msgs = document.getElementById('messages');
   var d    = document.createElement('div');
   d.className = 'typing-wrap'; d.id = 'typing';
-  d.innerHTML = '<div class="msg-avatar" style="width:30px;height:30px;background:var(--accent2);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;margin-top:2px;">&#x1F916;</div>'
+  d.innerHTML = ''
     + '<div class="typing-dots"><span></span><span></span><span></span></div>';
   msgs.appendChild(d); scrollBot();
 }
@@ -1496,11 +1626,22 @@ async function githubAPI(payload) {
 }
 
 async function gbpAPI(payload) {
-  var r = await fetch('/api/gbp', {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
-    body:    JSON.stringify(payload),
-  });
+  var controller = new AbortController();
+  var timer = setTimeout(function() { controller.abort(); }, 15000);
+  var r;
+  try {
+    r = await fetch('/api/gbp', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
+      body:    JSON.stringify(payload),
+      signal:  controller.signal,
+    });
+  } catch(e) {
+    clearTimeout(timer);
+    if (e.name === 'AbortError') throw new Error('GBP request timed out after 15s. Check your connection and try again.');
+    throw e;
+  }
+  clearTimeout(timer);
   var text = await r.text();
   var data;
   try { data = text ? JSON.parse(text) : {}; }
@@ -1931,21 +2072,29 @@ async function handleGBPAction(action) {
 }
 
 async function confirmGBPPost(btn, action) {
-  btn.parentNode.innerHTML = '<em>Publishing...</em>';
+  btn.parentNode.innerHTML = '<em style="color:var(--text3);font-size:12px;">Publishing...</em>';
   showWhisper('Publishing to Google Business...');
-  var result = await gbpAPI(action);
+  var result;
+  try { result = await gbpAPI(action); }
+  catch(e) { hideWhisper(); addAI('<strong>Publish failed:</strong> ' + esc(e.message)); return; }
   hideWhisper();
-  if (result && result.success) {
+  if (!result) return;
+  if (result.success) {
     addAI('&#x2705; <strong>Post published</strong> to Eritage ENT Care on Google. It will appear within a few minutes.');
+  } else {
+    addAI('<strong>Publish issue:</strong> ' + esc(JSON.stringify(result)));
   }
 }
 
 async function confirmGBPAction(btn, action) {
-  btn.parentNode.innerHTML = '<em>Applying...</em>';
+  btn.parentNode.innerHTML = '<em style="color:var(--text3);font-size:12px;">Applying...</em>';
   showWhisper('Updating Google Business Profile...');
-  var result = await gbpAPI(action);
+  var result;
+  try { result = await gbpAPI(action); }
+  catch(e) { hideWhisper(); addAI('<strong>Update failed:</strong> ' + esc(e.message)); return; }
   hideWhisper();
-  if (result && result.success) {
+  if (!result) return;
+  if (result.success) {
     var msgs = {
       replyReview:        '&#x2705; <strong>Review reply posted</strong> on Google.',
       updateHours:        '&#x2705; <strong>Business hours updated</strong> on Google.',
@@ -1953,6 +2102,8 @@ async function confirmGBPAction(btn, action) {
       updateDescription:  '&#x2705; <strong>Business description updated</strong> on Google.',
     };
     addAI(msgs[action.action] || '&#x2705; Done.');
+  } else {
+    addAI('<strong>Issue applying change:</strong> ' + esc(JSON.stringify(result)));
   }
 }
 
