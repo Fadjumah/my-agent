@@ -795,11 +795,64 @@ function doLogout() {
 // ═══════════════════════════════════════════════════════
 // LOCAL STORAGE
 // ═══════════════════════════════════════════════════════
+// ── Hybrid storage: localStorage (fast) + Supabase (cross-device) ────────────
 var MEM_KEY = 'aiagent_v4';
 function mem()       { try { return JSON.parse(localStorage.getItem(MEM_KEY) || '{}'); } catch(e) { return {}; } }
 function saveMem(d)  { localStorage.setItem(MEM_KEY, JSON.stringify(d)); }
 function get(k, def) { var v = mem()[k]; return (v !== undefined && v !== null) ? v : (def !== undefined ? def : null); }
-function set(k, v)   { var m = mem(); m[k] = v; saveMem(m); }
+function set(k, v)   { var m = mem(); m[k] = v; saveMem(m); syncKeyToCloud(k, v); }
+
+// Keys that must sync to Supabase (cross-device state)
+var CLOUD_KEYS = ['userName','about','prefs','learnedFacts','brain','mode',
+                  'sessions','currentSession','lastWeeklyDigest','weeklyDigest','weeklyDigestDate'];
+
+function syncKeyToCloud(k, v) {
+  if (CLOUD_KEYS.indexOf(k) === -1) return;
+  if (!getSessionToken()) return;
+  fetch('/api/sync', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
+    body:    JSON.stringify({ action: 'set', key: k, value: v }),
+  }).catch(function(e) { console.warn('[sync] set failed:', e.message); });
+}
+
+// Pull all cloud state on login — merges into localStorage
+async function syncFromCloud() {
+  if (!getSessionToken()) return;
+  try {
+    var r = await fetch('/api/sync?keys=' + CLOUD_KEYS.join(','), {
+      headers: { 'X-Agent-Token': getSessionToken() }
+    });
+    if (!r.ok) return;
+    var data = (await r.json()).data || {};
+    var m = mem();
+    var updated = false;
+    CLOUD_KEYS.forEach(function(k) {
+      if (data[k] !== undefined && data[k] !== null) {
+        // Cloud wins for critical identity keys, merge for arrays
+        if (k === 'sessions') {
+          // Merge sessions: cloud + local, deduplicate by id, keep newest 40
+          var local   = m.sessions || [];
+          var cloud   = data[k] || [];
+          var merged  = {};
+          local.concat(cloud).forEach(function(s) {
+            if (!merged[s.id] || s.updatedAt > merged[s.id].updatedAt) merged[s.id] = s;
+          });
+          m.sessions = Object.values(merged).sort(function(a,b){ return b.updatedAt - a.updatedAt; }).slice(0, 40);
+        } else if (k === 'learnedFacts') {
+          // Merge facts arrays
+          var localFacts = m.learnedFacts || [];
+          var cloudFacts = data[k] || [];
+          m.learnedFacts = [...new Set([...localFacts, ...cloudFacts])].slice(-100);
+        } else {
+          m[k] = data[k];
+        }
+        updated = true;
+      }
+    });
+    if (updated) { saveMem(m); console.log('[sync] cloud state loaded'); }
+  } catch(e) { console.warn('[sync] pull failed:', e.message); }
+}
 
 // ═══════════════════════════════════════════════════════
 // TOKEN ESTIMATION
@@ -1155,11 +1208,25 @@ function toggleSection(id, rowEl) {
 function closeSettings() { document.getElementById('settingsOverlay').classList.remove('open'); }
 
 function saveSettings() {
-  set('userName',  document.getElementById('s_name').value.trim());
+  var newName = document.getElementById('s_name').value.trim();
+  var newAbout = document.getElementById('s_about').value.trim();
+  var newPrefs = document.getElementById('s_prefs').value.trim();
+  // Bulk sync to cloud immediately on save
+  if (getSessionToken()) {
+    fetch('/api/sync', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
+      body:    JSON.stringify({ action: 'setBulk', data: {
+        userName: newName, about: newAbout, prefs: newPrefs,
+        brain: document.getElementById('s_brain').value,
+      }}),
+    }).catch(function(e) { console.warn('[sync] bulk save failed:', e.message); });
+  }
+  set('userName',  newName);
   set('brain',     document.getElementById('s_brain').value);
   // repo1 / repo1name are managed automatically by auto-detect — not saved from settings
-  set('about',     document.getElementById('s_about').value.trim());
-  set('prefs',     document.getElementById('s_prefs').value.trim());
+  set('about',     newAbout);
+  set('prefs',     newPrefs);
   set('setupDone', true);
   closeSettings();
   updateStatus();
@@ -1337,7 +1404,20 @@ function sysPrompt() {
   var factLine  = facts.length ? ' Known: ' + facts.slice(-10).map(function(f) { return f.slice(0, 80); }).join('; ') : '';
 
   // Inject adaptive profile if available
-  var adaptiveCtx = _adaptiveProfile ? buildAdaptiveContext(_adaptiveProfile) : '';
+  var adaptiveCtx = '';
+  if (_adaptiveProfile) {
+    adaptiveCtx = buildAdaptiveContext(_adaptiveProfile);
+    // Also inject micro patterns and predictions
+    if (_adaptiveProfile.microPatterns && _adaptiveProfile.microPatterns.length) {
+      adaptiveCtx += ' Micro-patterns: ' + _adaptiveProfile.microPatterns.slice(0,5).join('; ') + '.';
+    }
+    if (_adaptiveProfile.predictedNeeds && _adaptiveProfile.predictedNeeds.length) {
+      adaptiveCtx += ' Predicted next focus: ' + _adaptiveProfile.predictedNeeds.join(', ') + '.';
+    }
+    if (_adaptiveProfile.extractedPrefs && _adaptiveProfile.extractedPrefs.length) {
+      adaptiveCtx += ' Inferred goals: ' + _adaptiveProfile.extractedPrefs.slice(0,3).join('; ') + '.';
+    }
+  }
 
   var base = 'Agent for ' + name + ' (' + dateStr + '). Active repo: ' + (repo1 || 'none — will auto-detect from conversation') + '. '
     + aboutLine + ' ' + prefsLine + factLine
@@ -1882,7 +1962,18 @@ async function handleResponse(raw, msgEl) {
   memMatches.forEach(function(m) {
     var fact  = m[1].trim();
     var facts = get('learnedFacts', []);
-    if (!facts.includes(fact)) { facts.push(fact); set('learnedFacts', facts); }
+    if (!facts.includes(fact)) {
+      facts.push(fact);
+      set('learnedFacts', facts);
+      // Sync new fact immediately to cloud
+      if (getSessionToken()) {
+        fetch('/api/sync', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Agent-Token': getSessionToken() },
+          body:    JSON.stringify({ action: 'set', key: 'learnedFacts', value: facts }),
+        }).catch(function() {});
+      }
+    }
   });
 
   // Detect mode switch announcements
@@ -2197,6 +2288,9 @@ async function sendMessage() {
 // INIT
 // ═══════════════════════════════════════════════════════
 async function initApp() {
+  // 1. Pull cloud state first — merges into localStorage (cross-device sync)
+  await syncFromCloud();
+
   if (!getCurrentSessionId()) set('currentSession', 'chat_' + Date.now());
   setMode(get('mode', 'strategic'));
   updateStatus();
@@ -2216,12 +2310,12 @@ async function initApp() {
   if (!get('setupDone')) setTimeout(openSettings, 700);
   if (isGeminiLimited()) startCountdown();
 
-  // Load adaptive profile from KV (non-blocking)
+  // Load adaptive profile from Supabase
   fetchAdaptiveProfile().then(function(profile) {
     if (profile) console.log('[learn] profile loaded. Interactions:', profile.totalInteractions || 0);
   });
 
-  // Run daily analysis if needed (non-blocking)
+  // Run daily analysis if needed
   maybeRunDailyAnalysis();
 
   document.getElementById('userInput').focus();
