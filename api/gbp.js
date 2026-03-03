@@ -250,7 +250,7 @@ export default async function handler(req, res) {
         };
       }
 
-      const data = await gbpPostsFetch(accessToken, locationName, 'POST', postBody);
+      const data = await gbpPostsFetch(accessToken, fullName || locationName, 'POST', postBody);
       return res.status(200).json({
         success:  true,
         postName: data.name,
@@ -261,7 +261,7 @@ export default async function handler(req, res) {
 
     // ── Get recent reviews ───────────────────────────────────────────────────
     if (action === 'getReviews') {
-      const data = await gbpReviewsFetch(accessToken, locationName);
+      const data = await gbpReviewsFetch(accessToken, fullName || locationName);
       const reviews = (data.reviews || []).slice(0, 10).map(r => ({
         reviewId:    r.reviewId,
         reviewer:    r.reviewer?.displayName || 'Anonymous',
@@ -279,7 +279,7 @@ export default async function handler(req, res) {
       const { reviewId, reply } = body;
       if (!reviewId || !reply) return res.status(400).json({ error: 'reviewId and reply required' });
       await timedFetch(
-        'https://mybusiness.googleapis.com/v4/' + locationName + '/reviews/' + reviewId + '/reply',
+        'https://mybusiness.googleapis.com/v4/' + (fullName || locationName) + '/reviews/' + reviewId + '/reply',
         {
           method:  'PUT',
           headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
