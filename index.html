@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<title>SYNAPSE</title>
+<link rel="icon" type="image/png" href="/logo.png"/>
+<link rel="apple-touch-icon" href="/logo.png"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+<div class="app">
+
+  <!-- ═══════════ SIDEBAR ═══════════ -->
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="synapse-wordmark">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="28" height="28" style="display:block;">
+          <defs>
+            <linearGradient id="sg" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#a78bfa"/>
+              <stop offset="100%" style="stop-color:#60a5fa"/>
+            </linearGradient>
+          </defs>
+          <polygon points="20,2 35,10.5 35,29.5 20,38 5,29.5 5,10.5" fill="none" stroke="url(#sg)" stroke-width="2.5" stroke-linejoin="round"/>
+          <circle cx="20" cy="20" r="3" fill="url(#sg)"/>
+          <circle cx="12" cy="15" r="2" fill="url(#sg)" opacity="0.8"/>
+          <circle cx="28" cy="15" r="2" fill="url(#sg)" opacity="0.8"/>
+          <circle cx="12" cy="25" r="2" fill="url(#sg)" opacity="0.6"/>
+          <circle cx="28" cy="25" r="2" fill="url(#sg)" opacity="0.6"/>
+          <line x1="20" y1="20" x2="12" y2="15" stroke="url(#sg)" stroke-width="1" opacity="0.5"/>
+          <line x1="20" y1="20" x2="28" y2="15" stroke="url(#sg)" stroke-width="1" opacity="0.5"/>
+          <line x1="20" y1="20" x2="12" y2="25" stroke="url(#sg)" stroke-width="1" opacity="0.4"/>
+          <line x1="20" y1="20" x2="28" y2="25" stroke="url(#sg)" stroke-width="1" opacity="0.4"/>
+          <line x1="12" y1="15" x2="28" y2="15" stroke="url(#sg)" stroke-width="0.8" opacity="0.3"/>
+          <line x1="12" y1="25" x2="28" y2="25" stroke="url(#sg)" stroke-width="0.8" opacity="0.3"/>
+        </svg>
+        <span>SYNAPSE</span>
+      </div>
+      <button class="new-chat-btn" onclick="newChat()">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        New chat
+      </button>
+    </div>
+
+    <div class="sidebar-section">Recent</div>
+    <div class="chat-list" id="chatList"></div>
+
+    <div class="sidebar-bottom">
+      <div class="mode-toggle" id="modeToggle">
+        <button class="mode-btn active" id="btnStrategic" onclick="setMode('strategic')">⚡ Strategic</button>
+        <button class="mode-btn" id="btnCode" onclick="setMode('code')">&lt;/&gt; Code</button>
+      </div>
+      <button class="settings-btn" onclick="openSettings()">
+        <span>⚙️</span> Settings
+      </button>
+    </div>
+  </div><!-- /sidebar -->
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+
+  <!-- ═══════════ MAIN ═══════════ -->
+  <div class="main">
+
+    <!-- Topbar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="28" height="28" style="display:block;">
+            <defs>
+              <linearGradient id="sg2" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#a78bfa"/>
+                <stop offset="100%" style="stop-color:#60a5fa"/>
+              </linearGradient>
+            </defs>
+            <polygon points="20,2 35,10.5 35,29.5 20,38 5,29.5 5,10.5" fill="none" stroke="url(#sg2)" stroke-width="2.5" stroke-linejoin="round"/>
+            <circle cx="20" cy="20" r="3" fill="url(#sg2)"/>
+            <circle cx="12" cy="15" r="2" fill="url(#sg2)" opacity="0.8"/>
+            <circle cx="28" cy="15" r="2" fill="url(#sg2)" opacity="0.8"/>
+            <circle cx="12" cy="25" r="2" fill="url(#sg2)" opacity="0.6"/>
+            <circle cx="28" cy="25" r="2" fill="url(#sg2)" opacity="0.6"/>
+            <line x1="20" y1="20" x2="12" y2="15" stroke="url(#sg2)" stroke-width="1" opacity="0.5"/>
+            <line x1="20" y1="20" x2="28" y2="15" stroke="url(#sg2)" stroke-width="1" opacity="0.5"/>
+            <line x1="20" y1="20" x2="12" y2="25" stroke="url(#sg2)" stroke-width="1" opacity="0.4"/>
+            <line x1="20" y1="20" x2="28" y2="25" stroke="url(#sg2)" stroke-width="1" opacity="0.4"/>
+            <line x1="12" y1="15" x2="28" y2="15" stroke="url(#sg2)" stroke-width="0.8" opacity="0.3"/>
+            <line x1="12" y1="25" x2="28" y2="25" stroke="url(#sg2)" stroke-width="0.8" opacity="0.3"/>
+          </svg>
+          <div>
+            <div class="agent-title" id="agentTitle">SYNAPSE</div>
+            <div class="agent-subtitle" id="agentSubtitle">Perpetual Intelligence</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="mode-badge strategic" id="modeBadge">
+          <span class="dot"></span>
+          <span id="modeLabel">Strategic Mode</span>
+        </div>
+        <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Toggle light/dark">🌙</button>
+      </div>
+    </div><!-- /topbar -->
+
+    <!-- Messages -->
+    <div class="messages" id="messages"></div>
+
+    <!-- Center-screen whisper status -->
+    <div class="whisper" id="whisper"></div>
+
+    <!-- Input area -->
+    <div class="input-area">
+      <div class="status-bar">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Loading...</span>
+      </div>
+      <div class="input-box">
+        <textarea id="userInput" rows="1" placeholder="Message SYNAPSE…"
+          oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+    </div><!-- /input-area -->
+
+  </div><!-- /main -->
+
+</div><!-- /app -->
+
+<!-- ═══════════ SETTINGS OVERLAY ═══════════ -->
+<div class="overlay" id="settingsOverlay" onclick="if(event.target===this)closeSettings()">
+  <div class="settings-panel">
+    <div class="settings-title">Settings</div>
+    <div class="settings-sub">SYNAPSE · Perpetual Intelligence · Your cognitive layer</div>
+
+    <div class="secure-note">
+      🔒 API keys are stored server-side only. Never exposed to the browser.
+    </div>
+
+    <!-- Identity -->
+    <div class="settings-section">
+      <div class="settings-row" onclick="toggleSection('sec-identity', this)">
+        <span class="settings-row-title">👤 Identity</span>
+        <span class="settings-row-chevron">▾</span>
+      </div>
+      <div class="settings-collapsible" id="sec-identity">
+        <label class="field-label">Your name</label>
+        <input  class="field-input" id="s_name" type="text" placeholder="e.g. Fahad"/>
+        <label class="field-label" style="margin-top:12px;">About you</label>
+        <textarea class="field-input" id="s_about" rows="3"
+          placeholder="ENT surgeon, Uganda. Non-developer."></textarea>
+        <label class="field-label" style="margin-top:12px;">Response preferences</label>
+        <textarea class="field-input" id="s_prefs" rows="2"
+          placeholder="Direct, brief, no jargon."></textarea>
+      </div>
+    </div>
+
+    <!-- Brain -->
+    <div class="settings-section">
+      <div class="settings-row" onclick="toggleSection('sec-brain', this)">
+        <span class="settings-row-title">🧠 AI Brain</span>
+        <span class="settings-row-chevron">▾</span>
+      </div>
+      <div class="settings-collapsible" id="sec-brain">
+        <label class="field-label">Model routing</label>
+        <select class="field-input" id="s_brain">
+          <option value="auto">Auto (smart routing — recommended)</option>
+          <option value="claude">Always Claude (Anthropic)</option>
+          <option value="gemini">Always Gemini (Google)</option>
+          <option value="openai">Always GPT-4o (OpenAI)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- GitHub -->
+    <div class="settings-section">
+      <div class="settings-row" onclick="toggleSection('sec-github', this)">
+        <span class="settings-row-title">⚙️ GitHub</span>
+        <span class="settings-row-chevron">▾</span>
+      </div>
+      <div class="settings-collapsible" id="sec-github">
+        <label class="field-label">Active repository</label>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+          <span id="activeRepoName" style="font-size:13px;font-family:'JetBrains Mono',monospace;flex:1;">None detected yet</span>
+          <button class="clear-btn" onclick="clearActiveRepo()">Clear</button>
+        </div>
+        <div style="font-size:11px;color:var(--text3);line-height:1.7;">
+          Auto-detected from your messages. Just mention a repo by name and SYNAPSE will switch to it automatically.
+        </div>
+      </div>
+    </div>
+
+    <!-- Memory -->
+    <div class="settings-section">
+      <div class="settings-row" onclick="toggleSection('sec-memory', this)">
+        <span class="settings-row-title">💾 Memory</span>
+        <span class="settings-row-chevron">▾</span>
+      </div>
+      <div class="settings-collapsible" id="sec-memory">
+        <label class="field-label">Learned facts</label>
+        <div class="memory-box" id="memoryBox">Nothing saved yet.</div>
+        <div class="btn-row">
+          <button class="clear-btn" onclick="clearMemory()">Clear memory</button>
+          <button class="clear-btn" onclick="clearAllChats()">Clear all chats</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Adaptive profile -->
+    <div class="settings-section">
+      <div class="settings-row" onclick="toggleSection('sec-profile', this)">
+        <span class="settings-row-title">📊 Adaptive Profile</span>
+        <span class="settings-row-chevron">▾</span>
+      </div>
+      <div class="settings-collapsible" id="sec-profile">
+        <label class="field-label">What SYNAPSE has learned about you</label>
+        <div class="memory-box" id="profileBox">Not enough interactions yet. Builds over time.</div>
+      </div>
+    </div>
+
+    <!-- Account -->
+    <div class="settings-section">
+      <div class="settings-row" onclick="toggleSection('sec-account', this)">
+        <span class="settings-row-title">🔐 Account</span>
+        <span class="settings-row-chevron">▾</span>
+      </div>
+      <div class="settings-collapsible" id="sec-account">
+        <button class="clear-btn" onclick="doLogout()" style="width:100%;text-align:center;">Sign out</button>
+      </div>
+    </div>
+
+    <button class="save-btn" onclick="saveSettings()">Save settings</button>
+  </div>
+</div><!-- /settings overlay -->
+
+<!-- ═══════════ LOGIN SCREEN ═══════════ -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="48" height="48">
+        <defs>
+          <linearGradient id="lg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#a78bfa"/>
+            <stop offset="100%" style="stop-color:#60a5fa"/>
+          </linearGradient>
+        </defs>
+        <polygon points="20,2 35,10.5 35,29.5 20,38 5,29.5 5,10.5" fill="rgba(124,106,247,0.1)" stroke="url(#lg)" stroke-width="2" stroke-linejoin="round"/>
+        <circle cx="20" cy="20" r="4" fill="url(#lg)"/>
+        <circle cx="12" cy="15" r="2.5" fill="url(#lg)" opacity="0.75"/>
+        <circle cx="28" cy="15" r="2.5" fill="url(#lg)" opacity="0.75"/>
+        <circle cx="12" cy="25" r="2.5" fill="url(#lg)" opacity="0.55"/>
+        <circle cx="28" cy="25" r="2.5" fill="url(#lg)" opacity="0.55"/>
+        <line x1="20" y1="20" x2="12" y2="15" stroke="url(#lg)" stroke-width="1.5" opacity="0.5"/>
+        <line x1="20" y1="20" x2="28" y2="15" stroke="url(#lg)" stroke-width="1.5" opacity="0.5"/>
+        <line x1="20" y1="20" x2="12" y2="25" stroke="url(#lg)" stroke-width="1.5" opacity="0.4"/>
+        <line x1="20" y1="20" x2="28" y2="25" stroke="url(#lg)" stroke-width="1.5" opacity="0.4"/>
+      </svg>
+    </div>
+    <div class="login-title">SYNAPSE</div>
+    <div class="login-sub">Perpetual Intelligence · Sign in to continue</div>
+
+    <div id="loginError" class="login-error"></div>
+
+    <div class="login-field">
+      <label for="loginUser">Username</label>
+      <input class="login-input" id="loginUser" type="text" placeholder="your username"
+        autocomplete="username" onkeydown="loginKey(event)"/>
+    </div>
+    <div class="login-field">
+      <label for="loginPass">Password</label>
+      <input class="login-input" id="loginPass" type="password" placeholder="••••••••"
+        autocomplete="current-password" onkeydown="loginKey(event)"/>
+    </div>
+
+    <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign in</button>
+
+    <div class="login-footer">
+      SYNAPSE · Private agent system
+    </div>
+  </div>
+</div><!-- /login -->
+
+<!-- ═══════════ SCRIPTS ═══════════
+     Load order matters:
+     1. app.js    — storage layer (get/set/mem) must exist before anything else reads it
+     2. auth.js   — session token helpers
+     3. api.js    — fetch wrappers (depend on get/set, getSessionToken)
+     4. ui.js     — DOM helpers (depend on get/set, api functions)
+     5. chat.js   — conversation logic (depends on all of the above)
+     app.js window.onload fires after all scripts are parsed.
+═══════════════════════════════════ -->
+<script src="app.js"></script>
+<script src="auth.js"></script>
+<script src="api.js"></script>
+<script src="ui.js"></script>
+<script src="chat.js"></script>
+
+</body>
+</html>
