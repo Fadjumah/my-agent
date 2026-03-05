@@ -777,15 +777,22 @@ document.addEventListener('click', function(e) {
   if (type === 'discard') btn.closest('.msg-wrap').remove();
 });
 
-function handleGBPAction(action) {
+// handleGBPAction — executes GBP action and injects result back into conversation
+// agentRaw: the agent's full message that contained the action tag (used for history)
+function handleGBPAction(action, agentRaw) {
   var payload = JSON.stringify(action);
 
+  // ── Write actions: show draft for approval first, don't execute yet ────────
   if (action.action === 'createPost') {
     var el = addAI('<div style="border-left:3px solid var(--accent);padding-left:14px;margin-bottom:12px;"><div style="font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">&#x1F4DD; Draft GBP post</div><div style="font-size:15px;line-height:1.85">' + esc(action.content) + '</div>' + (action.callToAction ? '<div style="margin-top:8px;font-size:12px;color:var(--text3)">CTA: ' + esc(action.callToAction) + '</div>' : '') + '</div>');
     var br = document.createElement('div');
     var pb = document.createElement('button'); pb.className = 'action-btn green'; pb.setAttribute('data-gbp-action','post'); pb.setAttribute('data-gbp-payload', payload); pb.innerHTML = '&#x2713; Publish';
     var db = document.createElement('button'); db.className = 'action-btn red';   db.setAttribute('data-gbp-action','discard'); db.innerHTML = '&#x2715; Discard';
     br.appendChild(pb); br.appendChild(db); el.querySelector('.bubble').appendChild(br);
+    // Inject draft into context so agent knows what it proposed
+    if (typeof window.pushConvo === 'function') {
+      window.pushConvo('assistant', 'Drafted GBP post for approval: "' + action.content + '"');
+    }
     return;
   }
 
@@ -797,22 +804,77 @@ function handleGBPAction(action) {
     var ok2 = document.createElement('button'); ok2.className = 'action-btn green'; ok2.setAttribute('data-gbp-action','confirm'); ok2.setAttribute('data-gbp-payload', payload); ok2.innerHTML = '&#x2713; Apply';
     var no2 = document.createElement('button'); no2.className = 'action-btn red'; no2.setAttribute('data-gbp-action','discard'); no2.innerHTML = '&#x2715; Cancel';
     br2.appendChild(ok2); br2.appendChild(no2); el2.querySelector('.bubble').appendChild(br2);
+    if (typeof window.pushConvo === 'function') {
+      window.pushConvo('assistant', label + ' drafted for approval: ' + preview.slice(0, 200));
+    }
     return;
   }
 
-  // Read-only GBP
-  window.showStatusExact('Fetching Google Business data...');
-  window.gbpAPI(action).then(function(result) {
+  // ── Read actions: fetch, inject result into conversation, continue ─────────
+  var statusMsg = action.action === 'getAccounts'   ? 'Fetching your Google Business accounts...'
+                : action.action === 'getLocations'  ? 'Fetching your GBP locations...'
+                : action.action === 'getReviews'    ? 'Fetching your GBP reviews...'
+                : action.action === 'getProfile'    ? 'Fetching your GBP profile...'
+                : 'Fetching Google Business data...';
+
+  window.showWhisper(statusMsg);
+  var readEl     = addAI('<em style="color:var(--text3);font-size:13px">&#x1F504; ' + esc(statusMsg) + '</em>');
+  var readBubble = readEl.querySelector('.bubble');
+
+  window.gbpAPI(action).then(async function(result) {
     window.hideWhisper();
-    if (!result) return;
-    var readEl = addAI(''); var readBubble = readEl.querySelector('.bubble');
-    var buf = '', cur = document.createElement('span'); cur.className = 'cursor';
-    readBubble.appendChild(cur);
-    window.callAI('GBP data:\n' + JSON.stringify(result, null, 2) + '\n\nPresent clearly.', function(chunk) {
-      buf += chunk; window.hideWhisper();
-      readBubble.innerHTML = fmt(buf); readBubble.appendChild(cur); scrollBot();
-    }, [], false).then(function() { readBubble.innerHTML = fmt(buf); }).catch(function(e) { readBubble.innerHTML = '<strong>Error:</strong> ' + esc(e.message); });
-  }).catch(function(e) { window.hideWhisper(); addAI('<strong>GBP Error:</strong> ' + esc(e.message)); });
+    if (!result) {
+      readBubble.innerHTML = 'No data returned from Google Business Profile.';
+      return;
+    }
+
+    // Build tool result message
+    var toolResultText = '[TOOL_RESULT gbp:' + action.action + ']\n'
+      + JSON.stringify(result, null, 2)
+      + '\n[/TOOL_RESULT]\n\nPresent this Google Business Profile data clearly and helpfully to the user. Be specific.';
+
+    // Commit the tool result to conversation BEFORE calling AI
+    // (agentRaw already committed by chat.js handleResponse before calling us)
+    // If called standalone (from reasoningGate), push a synthetic agent turn
+    if (!agentRaw && typeof window.pushConvo === 'function') {
+      window.pushConvo('assistant', '[ACTION:GBP]' + JSON.stringify(action) + '[/ACTION:GBP]');
+    }
+
+    window.showWhisper('Reading GBP data...');
+    var buf = '';
+    var cur = document.createElement('span'); cur.className = 'cursor';
+    readBubble.innerHTML = ''; readBubble.appendChild(cur);
+
+    try {
+      var gbpResponse = await window.callAI(toolResultText, function(chunk) {
+        buf += chunk;
+        window.hideWhisper();
+        readBubble.innerHTML = fmt(buf);
+        readBubble.appendChild(cur);
+        scrollBot();
+      }, [], false);
+
+      // Commit both sides to conversation history
+      if (typeof window.pushConvo === 'function') {
+        window.pushConvo('user', toolResultText);
+        window.pushConvo('assistant', gbpResponse);
+      }
+
+      window.hideWhisper();
+      readBubble.innerHTML = fmt(gbpResponse);
+      scrollBot();
+    } catch(e) {
+      window.hideWhisper();
+      readBubble.innerHTML = '<strong>GBP summarise error:</strong> ' + esc(e.message);
+    }
+
+  }).catch(function(e) {
+    window.hideWhisper();
+    readBubble.innerHTML = '&#x274C; <strong>GBP Error:</strong> ' + esc(e.message);
+    if (typeof window.pushConvo === 'function') {
+      window.pushConvo('user', '[TOOL_RESULT gbp:' + action.action + '] ERROR: ' + e.message);
+    }
+  });
 }
 
 async function confirmGBPPost(btn, action) {
