@@ -241,13 +241,16 @@ async function gbpAPI(payload) {
 }
 
 // ── Sync ───────────────────────────────────────────────
-var CLOUD_KEYS = ['userName','about','prefs','learnedFacts','brain','mode','sessions','currentSession','lastWeeklyDigest','weeklyDigest','weeklyDigestDate'];
+var CLOUD_KEYS = ['userName','about','prefs','learnedFacts','crossChatMemory','brain','mode','sessions','currentSession','lastWeeklyDigest','weeklyDigest','weeklyDigestDate'];
 
 function syncKeyToCloud(k, v) {
   if (CLOUD_KEYS.indexOf(k) === -1) return;
   if (!window.getSessionToken()) return;
   fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Agent-Token': window.getSessionToken() }, body: JSON.stringify({ action: 'set', key: k, value: v }) }).catch(function(e) { console.warn('[sync]', e.message); });
 }
+
+// Identity keys: cloud always wins — ensures same config on any device
+var IDENTITY_KEYS = ['userName','about','prefs','brain','mode','crossChatMemory'];
 
 async function syncFromCloud() {
   if (!window.getSessionToken()) return;
@@ -257,15 +260,47 @@ async function syncFromCloud() {
     var data = (await r.json()).data || {};
     var m = window.mem(); var updated = false;
     CLOUD_KEYS.forEach(function(k) {
-      if (data[k] !== undefined && data[k] !== null) {
-        if (k === 'sessions') { var local = m.sessions || [], cloud = data[k] || [], merged = {}; local.concat(cloud).forEach(function(s) { if (!merged[s.id] || s.updatedAt > merged[s.id].updatedAt) merged[s.id] = s; }); m.sessions = Object.values(merged).sort(function(a, b) { return b.updatedAt - a.updatedAt; }).slice(0, 40); }
-        else if (k === 'learnedFacts') { m.learnedFacts = [...new Set([...(m.learnedFacts || []), ...(data[k] || [])])].slice(-100); }
-        else { m[k] = data[k]; }
-        updated = true;
+      if (data[k] === undefined || data[k] === null) return;
+      if (IDENTITY_KEYS.indexOf(k) >= 0) {
+        // Cloud wins unconditionally for identity/config keys
+        m[k] = data[k];
+      } else if (k === 'sessions') {
+        // Merge sessions by id, keep most recently updated version
+        var local = m.sessions || [], cloud = data[k] || [], merged = {};
+        local.concat(cloud).forEach(function(s) {
+          if (!merged[s.id] || (s.updatedAt > merged[s.id].updatedAt)) merged[s.id] = s;
+        });
+        m.sessions = Object.values(merged).sort(function(a, b) { return b.updatedAt - a.updatedAt; }).slice(0, 40);
+      } else if (k === 'learnedFacts') {
+        // Union merge — keep all unique facts from both cloud and local
+        m.learnedFacts = [...new Set([...(data[k] || []), ...(m.learnedFacts || [])])].slice(-150);
+      } else {
+        m[k] = data[k];
       }
+      updated = true;
     });
-    if (updated) { window.saveMem(m); console.log('[sync] cloud state loaded'); }
+    if (updated) { window.saveMem(m); console.log('[sync] cloud state loaded, memory:', (m.crossChatMemory || []).length, 'entries'); }
   } catch(e) { console.warn('[sync] pull failed:', e.message); }
+}
+
+// Push a single memory fact to cloud immediately — called after every AI reply
+function pushCrossMemory(fact) {
+  if (!fact || !fact.trim()) return;
+  var mem = window.get('crossChatMemory', []);
+  // Deduplicate — skip if very similar fact already stored
+  var lower = fact.toLowerCase();
+  var exists = mem.some(function(m) { return m.text && m.text.toLowerCase() === lower; });
+  if (exists) return;
+  mem.push({ text: fact.trim(), ts: Date.now() });
+  if (mem.length > 200) mem = mem.slice(-200); // keep last 200 facts
+  window.set('crossChatMemory', mem); // set() auto-syncs to cloud via syncKeyToCloud
+}
+
+function getCrossMemorySummary() {
+  var mem = window.get('crossChatMemory', []);
+  if (!mem.length) return '';
+  // Return most recent 30 facts as a compact string
+  return mem.slice(-30).map(function(m) { return m.text; }).join('; ');
 }
 
 // ── Adaptive learning ──────────────────────────────────
@@ -398,7 +433,7 @@ async function prefetchGitHub(text) {
 
 Object.assign(window, {
   estimateTokens, scoreComplexity, callAI, githubAPI, gbpAPI, pushFileWithRetry,
-  syncKeyToCloud, syncFromCloud, CLOUD_KEYS,
+  syncKeyToCloud, syncFromCloud, pushCrossMemory, getCrossMemorySummary, CLOUD_KEYS,
   _adaptiveProfile, fetchAdaptiveProfile, logInteraction, maybeRunDailyAnalysis,
   fetchAndShowProfileSummary, fetchAndShowDigest,
   prefetchGitHub, cachedGithubAPI, ensureRepoList, _ghCache, _repoList,
