@@ -39,23 +39,25 @@ async function withBackoff(fn, maxAttempts, label) {
 }
 
 // ── Streaming AI call ──────────────────────────────────
+// ── Detect task type client-side for provider hint ────────────────────────
+function detectTaskType(userMsg) {
+  var text = (userMsg || '').toLowerCase();
+  if (/\b(code|debug|fix|refactor|deploy|git|github|function|class|api|json|sql|bash|python|javascript|error|bug|implement|algorithm)\b/.test(text)) return 'code';
+  if (/\b(write|draft|essay|article|story|creative|blog|caption|post|email|letter|narrative|rewrite|tone|brand)\b/.test(text)) return 'creative';
+  if (text.length < 80) return 'fast';
+  return 'general';
+}
+
 async function callAI(userMsg, onChunk, attachments, extendedThinking) {
+  // Provider preference hint — backend owns the actual routing and fallback
   var manualBrain = window.get('brain', 'auto');
-  var provider;
-  if (manualBrain === 'auto' || manualBrain === 'claude') {
-    var complexity = scoreComplexity(userMsg, window.getCompactHistory());
-    provider = (complexity === 'simple' && !window.isGeminiLimited()) ? 'gemini' : 'claude';
-  } else {
-    provider = manualBrain;
-  }
-  if (provider === 'gemini' && window.isGeminiLimited()) { var qe = new Error('quota'); qe.isQuota = true; throw qe; }
+  var taskType    = detectTaskType(userMsg);
 
   var history = window.getCompactHistory();
   var sys     = window.sysPrompt();
   var est     = estimateTokens(sys) + estimateTokens(userMsg) + history.reduce(function(t, m) { return t + estimateTokens(m.content); }, 0);
   totalTokensUsed += est;
   window._lastTokenEstimate = est;
-  window._lastBrainUsed     = provider;
   window._updateTokenBudget && window._updateTokenBudget(est);
 
   var r = await withBackoff(async function() {
@@ -63,15 +65,16 @@ async function callAI(userMsg, onChunk, attachments, extendedThinking) {
       method:  'POST',
       headers: { 'Content-Type': 'application/json', 'X-Agent-Token': window.getSessionToken() },
       body:    JSON.stringify({
-        provider:         provider,
+        provider:         manualBrain,   // hint only — backend falls back autonomously
+        taskType:         taskType,
         systemPrompt:     sys,
         history:          history,
         userMessage:      userMsg,
         attachments:      attachments || [],
-        extendedThinking: !!(extendedThinking && provider === 'claude'),
+        extendedThinking: !!extendedThinking,
       }),
     });
-  }, 3, 'callAI');
+  }, 2, 'callAI');
 
   if (!r.ok) {
     var errText = await r.text();
@@ -86,6 +89,7 @@ async function callAI(userMsg, onChunk, attachments, extendedThinking) {
   var reader  = r.body.getReader();
   var decoder = new TextDecoder();
   var buffer  = '', full = '';
+
   while (true) {
     var result = await reader.read();
     if (result.done) break;
@@ -99,17 +103,38 @@ async function callAI(userMsg, onChunk, attachments, extendedThinking) {
       if (!raw || raw === '[DONE]') continue;
       try {
         var chunk = JSON.parse(raw);
+
         if (chunk.error) {
+          // All models exhausted — this is a real failure
           var cerr = new Error(chunk.error);
-          if (/QUOTA|quota/i.test(chunk.error)) cerr.isQuota = true;
           if (/session|unauthorized/i.test(chunk.error)) window.handleSessionExpiry();
+          cerr.friendlyHTML = '<strong>All AI providers unavailable.</strong> ' + window.esc(chunk.error);
           throw cerr;
         }
+
+        if (chunk.meta) {
+          // Silent model-switch telemetry — log only, never shown to user
+          if (chunk.meta.activeModel) {
+            window._lastBrainUsed = chunk.meta.provider || window._lastBrainUsed;
+            if (chunk.meta.switchedFrom) {
+              console.info('[synapse] switched from ' + chunk.meta.switchedFrom + ' → ' + chunk.meta.activeModel + ' (' + (chunk.meta.taskType||'') + ')');
+            }
+          }
+          // Extended thinking indicators
+          if (chunk.meta.thinking)      window.showWhisper && window.showWhisper('Extended thinking in progress...');
+          if (chunk.meta.thinkingDone)  window.showWhisper && window.showWhisper('Thinking complete — writing response...');
+        }
+
         if (chunk.t) { full += chunk.t; if (onChunk) onChunk(chunk.t); }
-      } catch(parseErr) { if (parseErr.isQuota !== undefined || parseErr.friendlyHTML) throw parseErr; }
+
+      } catch(parseErr) {
+        // Only rethrow real errors, not JSON parse glitches
+        if (parseErr.friendlyHTML || parseErr.status !== undefined) throw parseErr;
+      }
     }
   }
-  if (!full) throw new Error('Empty response from server.');
+
+  if (!full) throw new Error('Empty response — all models may be unavailable.');
   return full;
 }
 
