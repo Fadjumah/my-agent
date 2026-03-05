@@ -56,7 +56,11 @@ function scrollBot() {
 // ── Precise status (exact operation) ──────────────────
 function showStatusExact(msg) {
   var w = document.getElementById('whisper');
-  if (w) { w.textContent = msg; w.classList.add('show'); }
+  if (w) {
+    // Wave shimmer: wrap text in span with data-text for CSS ::after overlay
+    w.innerHTML = '<span class="whisper-text" data-text="' + msg.replace(/"/g, '&quot;') + '">' + msg + '</span>';
+    w.classList.add('show');
+  }
   var st = document.getElementById('statusText');
   if (st) st.textContent = msg;
 }
@@ -1010,6 +1014,88 @@ async function _renderDigest(fetchFn) {
   } catch(e) { hideWhisper(); bubble.innerHTML = 'Could not retrieve digest.'; }
   scrollBot();
 }
+
+
+// ── Planning panel — Michael Scofield execution tracker ────────────────────
+// Creates a live inline step-by-step plan that updates as each step runs.
+// Returns a controller object: { setActive, setDone, setError, setDetail, finish }
+window.showPlanningPanel = function(goal, steps) {
+  var el = window.addAI('');
+  var bubble = el.querySelector('.bubble');
+
+  var stepEls = [];
+  var html = '<div class="plan-panel">'
+    + '<div class="plan-header"><span class="plan-header-dot"></span>'
+    + window.esc(goal) + '</div>';
+
+  steps.forEach(function(s, i) {
+    html += '<div class="plan-step" id="ps-' + i + '">'
+      + '<span class="plan-step-icon">&#x25CB;</span>'
+      + '<div><div class="plan-step-text">' + window.esc(s) + '</div>'
+      + '<div class="plan-step-detail" id="psd-' + i + '"></div></div>'
+      + '</div>';
+  });
+
+  html += '<div class="plan-divider"></div>'
+    + '<div class="plan-summary" id="plan-summary">&#x23F3; Running...</div>'
+    + '</div>';
+
+  bubble.innerHTML = html;
+  window.scrollBot();
+
+  return {
+    setActive: function(i, statusText) {
+      for (var j = 0; j < steps.length; j++) {
+        var s = bubble.querySelector('#ps-' + j);
+        if (!s) continue;
+        var icon = s.querySelector('.plan-step-icon');
+        if (j < i) { /* already done, keep */ }
+        else if (j === i) {
+          s.className = 'plan-step active';
+          if (icon) icon.innerHTML = '&#x25D4;';
+          if (statusText) window.showStatusExact(statusText);
+        } else {
+          if (s.className === 'plan-step') return; // pending, don't change
+        }
+      }
+      window.scrollBot();
+    },
+    setDone: function(i, detail) {
+      var s = bubble.querySelector('#ps-' + i);
+      if (!s) return;
+      s.className = 'plan-step done';
+      var icon = s.querySelector('.plan-step-icon');
+      if (icon) icon.innerHTML = '&#x2714;';
+      if (detail) {
+        var d = bubble.querySelector('#psd-' + i);
+        if (d) d.textContent = detail;
+      }
+      window.scrollBot();
+    },
+    setError: function(i, detail) {
+      var s = bubble.querySelector('#ps-' + i);
+      if (!s) return;
+      s.className = 'plan-step error';
+      var icon = s.querySelector('.plan-step-icon');
+      if (icon) icon.innerHTML = '&#x2715;';
+      if (detail) {
+        var d = bubble.querySelector('#psd-' + i);
+        if (d) d.textContent = detail;
+      }
+      window.scrollBot();
+    },
+    finish: function(summary, success) {
+      var sm = bubble.querySelector('#plan-summary');
+      if (sm) {
+        sm.innerHTML = (success !== false ? '&#x2705; ' : '&#x26A0; ') + window.esc(summary || 'Complete.');
+      }
+      window.hideWhisper();
+      window.scrollBot();
+    },
+    bubble: bubble,
+    el: el,
+  };
+};
 
 Object.assign(window, {
   esc, fmt, safeParseJSON, scrollBot,
