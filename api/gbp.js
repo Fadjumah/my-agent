@@ -1,16 +1,41 @@
 /**
  * /api/gbp  —  Google Business Profile management
  *
+ * ── READ ──────────────────────────────────────────────────────────────────────
  * POST { action: 'getProfile'   }                          -> get listing info
- * POST { action: 'createPost', topic, content, callToAction? } -> create a post
- * POST { action: 'publishPost', postData }                 -> publish a drafted post
- * POST { action: 'getReviews'  }                          -> list recent reviews
- * POST { action: 'replyReview', reviewId, reply }          -> reply to a review
- * POST { action: 'updateHours', hours }                    -> update regular hours
- * POST { action: 'updateSpecialHours', specialHours }      -> set holiday hours
+ * POST { action: 'getReviews'   }                          -> list recent reviews
+ * POST { action: 'getPosts',    limit? }                   -> list recent posts
+ * POST { action: 'listPhotos'   }                          -> list all photos
+ * POST { action: 'getQuestions', limit? }                  -> list customer Q&A
+ * POST { action: 'getInsights', startDate, endDate }       -> views/searches/calls analytics
+ * POST { action: 'getAccounts'  }                          -> list GBP accounts (setup)
+ * POST { action: 'getLocations', accountId }               -> list locations (setup)
+ *
+ * ── WRITE — contact & identity ────────────────────────────────────────────────
+ * POST { action: 'updatePhoneNumbers', primaryPhone, additionalPhones? } -> update phone(s)
+ * POST { action: 'updateWebsite',     websiteUri }         -> update website URL
+ * POST { action: 'updateAddress',     address }            -> update physical address
+ * POST { action: 'updateCategory',    primaryCategory, additionalCategories? } -> update categories
  * POST { action: 'updateDescription', description }        -> update business description
- * POST { action: 'getAccounts' }                           -> list GBP accounts (setup helper)
- * POST { action: 'getLocations', accountId }               -> list locations (setup helper)
+ * POST { action: 'updateHours',       hours }              -> update regular hours
+ * POST { action: 'updateSpecialHours',specialHours }       -> set holiday/special hours
+ *
+ * ── WRITE — posts ─────────────────────────────────────────────────────────────
+ * POST { action: 'createPost',  content, callToAction?, actionType?, actionUrl? } -> new post
+ * POST { action: 'deletePost',  postName }                 -> delete a post
+ * POST { action: 'updatePost',  postName, content }        -> edit existing post
+ *
+ * ── WRITE — reviews ───────────────────────────────────────────────────────────
+ * POST { action: 'replyReview',       reviewId, reply }    -> reply to a review
+ * POST { action: 'deleteReviewReply', reviewId }           -> delete your reply
+ *
+ * ── WRITE — photos ────────────────────────────────────────────────────────────
+ * POST { action: 'uploadPhoto',  sourceUrl, category? }    -> add photo by URL
+ * POST { action: 'deletePhoto',  mediaName }               -> delete a photo
+ *
+ * ── WRITE — Q&A ───────────────────────────────────────────────────────────────
+ * POST { action: 'answerQuestion', questionId, answer }    -> answer a customer question
+ * POST { action: 'deleteAnswer',   questionId }            -> remove your answer
  *
  * Required env vars:
  *   AGENT_API_KEY, GBP_CLIENT_ID, GBP_CLIENT_SECRET,
@@ -145,18 +170,29 @@ async function getAccessToken(userId) {
 
 // ── GBP API call helper ───────────────────────────────────────────────────────
 // Fetch with 10s timeout so Vercel never hangs
-async function timedFetch(url, opts, label) {
-  const controller = new AbortController();
-  const timer      = setTimeout(() => controller.abort(), 10000);
-  try {
-    const r = await fetch(url, { ...opts, signal: controller.signal });
-    clearTimeout(timer);
-    return r;
-  } catch(e) {
-    clearTimeout(timer);
-    if (e.name === 'AbortError') throw new Error(label + ' timed out after 10s');
-    throw e;
+async function timedFetch(url, opts, label, maxRetries = 3) {
+  let lastErr;
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, Math.min(attempt * 1500, 5000)));
+    const controller = new AbortController();
+    const timer      = setTimeout(() => controller.abort(), 12000);
+    try {
+      const r = await fetch(url, { ...opts, signal: controller.signal });
+      clearTimeout(timer);
+      // Retry on 503 (Google GBP has occasional service blips)
+      if (r.status === 503 && attempt < maxRetries) {
+        console.warn('[gbp] 503 on ' + label + ', retrying (' + (attempt+1) + '/' + maxRetries + ')');
+        continue;
+      }
+      return r;
+    } catch(e) {
+      clearTimeout(timer);
+      lastErr = e;
+      if (e.name === 'AbortError') lastErr = new Error(label + ' timed out after 12s');
+      if (attempt < maxRetries) continue;
+    }
   }
+  throw lastErr || new Error(label + ' failed after retries');
 }
 
 async function gbpFetch(accessToken, path, method = 'GET', body = null) {
@@ -297,6 +333,28 @@ export default async function handler(req, res) {
       });
     }
 
+    // ── Get recent posts ─────────────────────────────────────────────────────
+    if (action === 'getPosts') {
+      const { limit = 5 } = body;
+      const data = await gbpPostsFetch(accessToken, fullName || locationName);
+      const posts = (data.localPosts || []).slice(0, limit).map(p => ({
+        name:        p.name,
+        summary:     p.summary || '',
+        state:       p.state || '',
+        topicType:   p.topicType || '',
+        createTime:  p.createTime || '',
+        updateTime:  p.updateTime || '',
+        searchUrl:   p.searchUrl || null,
+        callToAction: p.callToAction || null,
+      }));
+      return res.status(200).json({
+        posts,
+        total:    posts.length,
+        hasMore:  (data.localPosts || []).length > limit,
+        nextPage: data.nextPageToken || null,
+      });
+    }
+
     // ── Get recent reviews ───────────────────────────────────────────────────
     if (action === 'getReviews') {
       const data = await gbpReviewsFetch(accessToken, fullName || locationName);
@@ -395,6 +453,290 @@ export default async function handler(req, res) {
         { profile: { description } }
       );
       return res.status(200).json({ success: true });
+    }
+
+    // ── Update phone numbers ─────────────────────────────────────────────────
+    if (action === 'updatePhoneNumbers') {
+      const { primaryPhone, additionalPhones } = body;
+      if (!primaryPhone) return res.status(400).json({ error: 'primaryPhone required (e.g. +256XXXXXXXXX)' });
+      const phoneNumbers = { primaryPhone };
+      if (additionalPhones && additionalPhones.length) {
+        phoneNumbers.additionalPhones = Array.isArray(additionalPhones) ? additionalPhones : [additionalPhones];
+      }
+      await gbpFetch(accessToken,
+        'https://mybusinessbusinessinformation.googleapis.com/v1/' + locationName +
+        '?updateMask=phoneNumbers',
+        'PATCH',
+        { phoneNumbers }
+      );
+      return res.status(200).json({ success: true, phoneNumbers });
+    }
+
+    // ── Update website URL ───────────────────────────────────────────────────
+    if (action === 'updateWebsite') {
+      const { websiteUri } = body;
+      if (!websiteUri) return res.status(400).json({ error: 'websiteUri required' });
+      await gbpFetch(accessToken,
+        'https://mybusinessbusinessinformation.googleapis.com/v1/' + locationName +
+        '?updateMask=websiteUri',
+        'PATCH',
+        { websiteUri }
+      );
+      return res.status(200).json({ success: true, websiteUri });
+    }
+
+    // ── Update physical address ──────────────────────────────────────────────
+    if (action === 'updateAddress') {
+      const { address } = body;
+      // address: { regionCode, postalCode, administrativeArea, locality, addressLines: [] }
+      if (!address) return res.status(400).json({ error: 'address object required' });
+      await gbpFetch(accessToken,
+        'https://mybusinessbusinessinformation.googleapis.com/v1/' + locationName +
+        '?updateMask=storefrontAddress',
+        'PATCH',
+        { storefrontAddress: address }
+      );
+      return res.status(200).json({ success: true });
+    }
+
+    // ── Update business categories ───────────────────────────────────────────
+    if (action === 'updateCategory') {
+      const { primaryCategory, additionalCategories } = body;
+      // primaryCategory: { name: 'categories/gcid:otolaryngologist' }
+      if (!primaryCategory) return res.status(400).json({ error: 'primaryCategory required e.g. { name: "categories/gcid:otolaryngologist" }' });
+      const cats = { primaryCategory };
+      if (additionalCategories && additionalCategories.length) {
+        cats.additionalCategories = additionalCategories;
+      }
+      await gbpFetch(accessToken,
+        'https://mybusinessbusinessinformation.googleapis.com/v1/' + locationName +
+        '?updateMask=categories',
+        'PATCH',
+        cats
+      );
+      return res.status(200).json({ success: true });
+    }
+
+    // ── Delete a post ────────────────────────────────────────────────────────
+    if (action === 'deletePost') {
+      const { postName } = body;
+      if (!postName) return res.status(400).json({ error: 'postName required (get from getPosts)' });
+      const url = 'https://mybusiness.googleapis.com/v4/' + postName;
+      const r = await timedFetch(url, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + accessToken },
+      }, 'GBP Delete Post');
+      if (!r.ok) {
+        const txt = await r.text();
+        throw new Error('Delete post failed ' + r.status + ': ' + txt.slice(0, 200));
+      }
+      return res.status(200).json({ success: true, deleted: postName });
+    }
+
+    // ── Update (edit) an existing post ──────────────────────────────────────
+    if (action === 'updatePost') {
+      const { postName, content } = body;
+      if (!postName || !content) return res.status(400).json({ error: 'postName and content required' });
+      const url = 'https://mybusiness.googleapis.com/v4/' + postName + '?updateMask=summary';
+      const r = await timedFetch(url, {
+        method:  'PATCH',
+        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ summary: content }),
+      }, 'GBP Update Post');
+      const text = await r.text();
+      let data; try { data = JSON.parse(text); } catch(e) { data = {}; }
+      if (!r.ok) throw new Error('Update post failed ' + r.status + ': ' + (data.error?.message || text.slice(0, 200)));
+      return res.status(200).json({ success: true, post: data });
+    }
+
+    // ── Delete a review reply ────────────────────────────────────────────────
+    if (action === 'deleteReviewReply') {
+      const { reviewId } = body;
+      if (!reviewId) return res.status(400).json({ error: 'reviewId required' });
+      const url = 'https://mybusiness.googleapis.com/v4/' + (fullName || locationName) + '/reviews/' + reviewId + '/reply';
+      const r = await timedFetch(url, {
+        method:  'DELETE',
+        headers: { 'Authorization': 'Bearer ' + accessToken },
+      }, 'GBP Delete Review Reply');
+      if (!r.ok) {
+        const txt = await r.text();
+        throw new Error('Delete reply failed ' + r.status + ': ' + txt.slice(0, 200));
+      }
+      return res.status(200).json({ success: true, reviewId });
+    }
+
+    // ── List photos ──────────────────────────────────────────────────────────
+    if (action === 'listPhotos') {
+      const url = 'https://mybusiness.googleapis.com/v4/' + (fullName || locationName) + '/media';
+      const r   = await timedFetch(url, {
+        headers: { 'Authorization': 'Bearer ' + accessToken },
+      }, 'GBP List Photos');
+      const text = await r.text();
+      let data; try { data = JSON.parse(text); } catch(e) { data = {}; }
+      if (!r.ok) throw new Error('List photos failed ' + r.status + ': ' + (data.error?.message || text.slice(0,200)));
+      const photos = (data.mediaItems || []).map(m => ({
+        name:        m.name,
+        mediaFormat: m.mediaFormat,
+        category:    m.locationAssociation?.category || null,
+        sourceUrl:   m.sourceUrl || null,
+        googleUrl:   m.googleUrl || null,
+        createTime:  m.createTime || null,
+        dimensions:  m.dimensions || null,
+      }));
+      return res.status(200).json({ photos, total: photos.length });
+    }
+
+    // ── Upload a photo by URL ────────────────────────────────────────────────
+    if (action === 'uploadPhoto') {
+      const { sourceUrl, category } = body;
+      // category: EXTERIOR | INTERIOR | PRODUCT | AT_WORK | FOOD_AND_DRINK | MENU | COMMON_AREA | ROOMS | TEAMS | ADDITIONAL
+      if (!sourceUrl) return res.status(400).json({ error: 'sourceUrl required (publicly accessible image URL)' });
+      const url = 'https://mybusiness.googleapis.com/v4/' + (fullName || locationName) + '/media';
+      const mediaBody = {
+        mediaFormat:          'PHOTO',
+        locationAssociation:  { category: category || 'ADDITIONAL' },
+        sourceUrl,
+      };
+      const r = await timedFetch(url, {
+        method:  'POST',
+        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body:    JSON.stringify(mediaBody),
+      }, 'GBP Upload Photo');
+      const text = await r.text();
+      let data; try { data = JSON.parse(text); } catch(e) { data = {}; }
+      if (!r.ok) throw new Error('Upload photo failed ' + r.status + ': ' + (data.error?.message || text.slice(0,200)));
+      return res.status(200).json({ success: true, mediaName: data.name, googleUrl: data.googleUrl || null });
+    }
+
+    // ── Delete a photo ───────────────────────────────────────────────────────
+    if (action === 'deletePhoto') {
+      const { mediaName } = body;
+      if (!mediaName) return res.status(400).json({ error: 'mediaName required (get from listPhotos)' });
+      const url = 'https://mybusiness.googleapis.com/v4/' + mediaName;
+      const r   = await timedFetch(url, {
+        method:  'DELETE',
+        headers: { 'Authorization': 'Bearer ' + accessToken },
+      }, 'GBP Delete Photo');
+      if (!r.ok) {
+        const txt = await r.text();
+        throw new Error('Delete photo failed ' + r.status + ': ' + txt.slice(0,200));
+      }
+      return res.status(200).json({ success: true, deleted: mediaName });
+    }
+
+    // ── Get customer Q&A ─────────────────────────────────────────────────────
+    if (action === 'getQuestions') {
+      const { limit = 10 } = body;
+      const url = 'https://mybusiness.googleapis.com/v4/' + (fullName || locationName) + '/questions?pageSize=' + limit;
+      const r   = await timedFetch(url, {
+        headers: { 'Authorization': 'Bearer ' + accessToken },
+      }, 'GBP Get Questions');
+      const text = await r.text();
+      let data; try { data = JSON.parse(text); } catch(e) { data = {}; }
+      if (!r.ok) throw new Error('Get questions failed ' + r.status + ': ' + (data.error?.message || text.slice(0,200)));
+      const questions = (data.questions || []).map(q => ({
+        name:        q.name,
+        questionId:  q.name?.split('/').pop(),
+        text:        q.text,
+        author:      q.author?.displayName || 'Customer',
+        createTime:  q.createTime,
+        upvoteCount: q.upvoteCount || 0,
+        answered:    !!(q.topAnswers && q.topAnswers.length),
+        answers:     (q.topAnswers || []).map(a => ({ text: a.text, author: a.author?.displayName, upvotes: a.upvoteCount })),
+      }));
+      return res.status(200).json({ questions, total: questions.length, totalSize: data.totalSize || 0 });
+    }
+
+    // ── Answer a customer question ───────────────────────────────────────────
+    if (action === 'answerQuestion') {
+      const { questionId, answer } = body;
+      if (!questionId || !answer) return res.status(400).json({ error: 'questionId and answer required' });
+      const locBase = fullName || locationName;
+      const url     = 'https://mybusiness.googleapis.com/v4/' + locBase + '/questions/' + questionId + '/answers';
+      const r = await timedFetch(url, {
+        method:  'POST',
+        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ text: answer }),
+      }, 'GBP Answer Question');
+      const text = await r.text();
+      let data; try { data = JSON.parse(text); } catch(e) { data = {}; }
+      if (!r.ok) throw new Error('Answer question failed ' + r.status + ': ' + (data.error?.message || text.slice(0,200)));
+      return res.status(200).json({ success: true, answer: data });
+    }
+
+    // ── Delete your answer to a question ────────────────────────────────────
+    if (action === 'deleteAnswer') {
+      const { questionId } = body;
+      if (!questionId) return res.status(400).json({ error: 'questionId required' });
+      const locBase = fullName || locationName;
+      const url     = 'https://mybusiness.googleapis.com/v4/' + locBase + '/questions/' + questionId + '/answers:delete';
+      const r = await timedFetch(url, {
+        method:  'DELETE',
+        headers: { 'Authorization': 'Bearer ' + accessToken },
+      }, 'GBP Delete Answer');
+      if (!r.ok) {
+        const txt = await r.text();
+        throw new Error('Delete answer failed ' + r.status + ': ' + txt.slice(0,200));
+      }
+      return res.status(200).json({ success: true, questionId });
+    }
+
+    // ── Get insights / analytics ─────────────────────────────────────────────
+    if (action === 'getInsights') {
+      // Uses Business Profile Performance API (replaced old Insights API)
+      const { startDate, endDate } = body;
+      // Defaults: last 28 days
+      const end   = endDate   ? new Date(endDate)   : new Date();
+      const start = startDate ? new Date(startDate) : new Date(end.getTime() - 28 * 24 * 60 * 60 * 1000);
+      const fmt   = d => ({ year: d.getFullYear(), month: d.getMonth() + 1, day: d.getDate() });
+      const metrics = [
+        'BUSINESS_IMPRESSIONS_DESKTOP_MAPS',
+        'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
+        'BUSINESS_IMPRESSIONS_MOBILE_MAPS',
+        'BUSINESS_IMPRESSIONS_MOBILE_SEARCH',
+        'BUSINESS_DIRECTION_REQUESTS',
+        'CALL_CLICKS',
+        'WEBSITE_CLICKS',
+      ];
+      const url = 'https://businessprofileperformance.googleapis.com/v1/' + locationName +
+        ':fetchMultiDailyMetricsTimeSeries';
+      const r = await timedFetch(url, {
+        method:  'POST',
+        headers: { 'Authorization': 'Bearer ' + accessToken, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          dailyMetrics:   metrics,
+          dailyRange: { startDate: fmt(start), endDate: fmt(end) },
+        }),
+      }, 'GBP Insights');
+      const text = await r.text();
+      let data; try { data = JSON.parse(text); } catch(e) { data = {}; }
+      if (!r.ok) throw new Error('Get insights failed ' + r.status + ': ' + (data.error?.message || text.slice(0,200)));
+
+      // Summarise: sum each metric over the period
+      const summary = {};
+      (data.multiDailyMetricTimeSeries || []).forEach(series => {
+        (series.dailyMetricTimeSeries || []).forEach(ts => {
+          const key = ts.dailyMetric;
+          const total = (ts.timeSeries?.datedValues || []).reduce((s, v) => s + (v.value || 0), 0);
+          summary[key] = total;
+        });
+      });
+
+      return res.status(200).json({
+        period: {
+          start: start.toISOString().slice(0,10),
+          end:   end.toISOString().slice(0,10),
+          days:  Math.round((end - start) / (24*60*60*1000)),
+        },
+        summary: {
+          impressions_maps:    (summary.BUSINESS_IMPRESSIONS_DESKTOP_MAPS    || 0) + (summary.BUSINESS_IMPRESSIONS_MOBILE_MAPS    || 0),
+          impressions_search:  (summary.BUSINESS_IMPRESSIONS_DESKTOP_SEARCH  || 0) + (summary.BUSINESS_IMPRESSIONS_MOBILE_SEARCH  || 0),
+          direction_requests:  summary.BUSINESS_DIRECTION_REQUESTS || 0,
+          call_clicks:         summary.CALL_CLICKS     || 0,
+          website_clicks:      summary.WEBSITE_CLICKS  || 0,
+        },
+        raw: summary,
+      });
     }
 
     return res.status(400).json({ error: 'Unknown action: ' + action });
