@@ -158,7 +158,7 @@ function buildAdaptiveContext(profile) {
   if (!profile) return '';
   var parts = [];
   if (profile.style) {
-    if (profile.style.prefersBrief === true)    parts.push('Prefers concise replies (under 120 words).');
+    if (profile.style.prefersBrief === true)    parts.push('Values concise replies — no filler, no padding — but always complete the thought fully.');
     if (profile.style.prefersBrief === false)   parts.push('Engages well with detailed responses.');
     if (profile.style.prefersBullets === false) parts.push('Dislikes bullet points — use prose.');
     if (profile.style.prefersBullets === true)  parts.push('Responds well to bullet-point structure.');
@@ -188,8 +188,8 @@ function sysPrompt() {
   var timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   var dateCtx = 'Current date and time: ' + dateStr + ' at ' + timeStr + ' (East Africa Time — UTC+3).';
 
-  var aboutLine = (about && about.length > 5) ? 'About: ' + about : 'ENT surgeon, Uganda. Non-developer. Plain language.';
-  var prefsLine = (prefs && prefs.length > 5) ? 'Prefs: ' + prefs : 'Direct, brief, no jargon.';
+  var aboutLine = (about && about.length > 5) ? 'About: ' + about : 'ENT surgeon, Uganda. Highly technical and analytically sharp — appreciates well-placed jargon and precision language.';
+  var prefsLine = (prefs && prefs.length > 5) ? 'Prefs: ' + prefs : 'Direct and complete. No padding, no filler — but never truncate. Length is set by the answer, not a cap. Jargon used with precision is welcome.';
   var factLine  = facts.length ? ' Known: ' + facts.slice(-10).map(function(f) { return f.slice(0, 80); }).join('; ') : '';
 
   var recallCtx = '';
@@ -225,7 +225,8 @@ function sysPrompt() {
 
   var actionTagRules = '\n\nCRITICAL: NEVER display [ACTION:*], [MEMORY], or any raw tag syntax to the user. Execute tags silently, show only results.';
 
-  var base = dateCtx + '\nAgent for ' + name + '. Active repo: '
+  var synapseId = 'You are Synapse — not a generic assistant. This is your name and you carry it with full self-awareness. Synapse is precise, technically fluent, confident, and never generic. Own the identity in tone and delivery.\n\n';
+  var base = synapseId + dateCtx + '\nAgent for ' + name + '. Active repo: '
     + (repo1 || 'none') + '. '
     + aboutLine + ' ' + prefsLine + factLine
     + (adaptiveCtx ? ' ' + adaptiveCtx : '');
@@ -410,7 +411,7 @@ async function handleResponse(raw, msgEl) {
 
     var toolResultText = '[TOOL_RESULT github:' + ghAction + ']\n'
       + JSON.stringify(resultForContext, null, 2)
-      + '\n[/TOOL_RESULT]\n\nBased on this result, respond to the user. Be specific and concise. Never print raw JSON.';
+      + '\n[/TOOL_RESULT]\n\nRespond based on this result. Be specific and complete — never truncate mid-answer. No raw JSON.';
 
     // Step 1: commit agent's action message to history
     pushConvo('assistant', raw);
