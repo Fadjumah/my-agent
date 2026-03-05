@@ -62,47 +62,85 @@ async function updateStoredTokens(userId, tokens, existingProfile) {
   );
 }
 
-// ── Get a valid access token (refresh if expired) ─────────────────────────────
-async function getAccessToken(userId) {
-  const tokens = await getStoredTokens(userId);
-  if (!tokens) {
-    throw new Error('GBP not connected. Visit /api/gbp-auth?user=' + userId + ' to authorise.');
-  }
-
-  // If not expired, return existing
-  if (tokens.expires_at && Date.now() < tokens.expires_at - 60000) {
-    return tokens.access_token;
-  }
-
-  // Refresh the access token
-  if (!tokens.refresh_token) {
-    throw new Error('No refresh token stored. Re-authorise at /api/gbp-auth?user=' + userId);
-  }
-
+// ── Get a valid access token ──────────────────────────────────────────────────
+// Priority:
+//   1. Env var GBP_REFRESH_TOKEN — permanent, survives all deployments
+//   2. Supabase stored tokens — set by OAuth flow
+// This means once GBP_REFRESH_TOKEN is in Vercel, the agent never loses connection.
+async function refreshWithToken(refreshToken) {
   const r = await fetch('https://oauth2.googleapis.com/token', {
     method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body:    new URLSearchParams({
-      refresh_token: tokens.refresh_token,
+      refresh_token: refreshToken,
       client_id:     process.env.GBP_CLIENT_ID,
       client_secret: process.env.GBP_CLIENT_SECRET,
       grant_type:    'refresh_token',
     }).toString(),
   });
-
   const fresh = await r.json();
   if (!r.ok || !fresh.access_token) {
     throw new Error('Token refresh failed: ' + (fresh.error_description || fresh.error || 'unknown'));
   }
+  return { access_token: fresh.access_token, expires_in: fresh.expires_in || 3600 };
+}
 
-  // Update stored tokens
+// In-memory access token cache — survives within a single Vercel invocation
+let _cachedToken     = null;
+let _cachedExpiresAt = 0;
+
+async function getAccessToken(userId) {
+  // Serve from in-memory cache if still valid (60s buffer)
+  if (_cachedToken && Date.now() < _cachedExpiresAt - 60000) {
+    return _cachedToken;
+  }
+
+  // ── Path 1: GBP_REFRESH_TOKEN env var (permanent, deployment-safe) ─────
+  const envRefreshToken = process.env.GBP_REFRESH_TOKEN;
+  if (envRefreshToken) {
+    try {
+      const fresh = await refreshWithToken(envRefreshToken);
+      _cachedToken     = fresh.access_token;
+      _cachedExpiresAt = Date.now() + fresh.expires_in * 1000;
+      return _cachedToken;
+    } catch(e) {
+      console.warn('[gbp] env refresh token failed, trying Supabase:', e.message);
+      // Fall through to Supabase path
+    }
+  }
+
+  // ── Path 2: Supabase stored tokens (set by OAuth flow) ──────────────────
+  const stored = await getStoredTokens(userId);
+  if (!stored) {
+    throw new Error(
+      'GBP not connected. Add GBP_REFRESH_TOKEN to Vercel env vars, or visit /api/gbp-auth?user=' + userId + ' to authorise.'
+    );
+  }
+
+  // If stored access token still valid, return it
+  if (stored.expires_at && Date.now() < stored.expires_at - 60000) {
+    _cachedToken     = stored.access_token;
+    _cachedExpiresAt = stored.expires_at;
+    return _cachedToken;
+  }
+
+  // Stored token expired — refresh it
+  if (!stored.refresh_token) {
+    throw new Error('No refresh token in Supabase. Add GBP_REFRESH_TOKEN to Vercel, or re-authorise at /api/gbp-auth?user=' + userId);
+  }
+
+  const fresh = await refreshWithToken(stored.refresh_token);
   const updated = {
-    ...tokens,
+    ...stored,
     access_token: fresh.access_token,
-    expires_at:   Date.now() + (fresh.expires_in || 3600) * 1000,
+    expires_at:   Date.now() + fresh.expires_in * 1000,
   };
-  await updateStoredTokens(userId, updated);
-  return fresh.access_token;
+  // Update Supabase async — don't block the response
+  updateStoredTokens(userId, updated).catch(e => console.warn('[gbp] Supabase token update failed:', e.message));
+
+  _cachedToken     = fresh.access_token;
+  _cachedExpiresAt = updated.expires_at;
+  return _cachedToken;
 }
 
 // ── GBP API call helper ───────────────────────────────────────────────────────
@@ -364,8 +402,12 @@ export default async function handler(req, res) {
   } catch(err) {
     console.error('[gbp] error:', err.message);
     // Detect auth errors specifically
-    if (err.message.includes('not connected') || err.message.includes('authorise') || err.message.includes('refresh')) {
-      return res.status(401).json({ error: err.message, needsAuth: true });
+    if (err.message.includes('not connected') || err.message.includes('authorise') || err.message.includes('refresh') || err.message.includes('Token refresh failed')) {
+      return res.status(401).json({
+        error: err.message,
+        needsAuth: true,
+        fix: 'Add GBP_REFRESH_TOKEN, GBP_CLIENT_ID, GBP_CLIENT_SECRET, GBP_ACCOUNT_ID, GBP_LOCATION_ID to Vercel environment variables.',
+      });
     }
     return res.status(500).json({ error: err.message });
   }
