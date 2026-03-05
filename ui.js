@@ -898,20 +898,98 @@ function handleGBPAction(action, agentRaw) {
 async function confirmGBPPost(btn, action) {
   btn.parentNode.innerHTML = '<em>Publishing...</em>';
   window.showStatusExact('Publishing to Google Business Profile...');
-  try { var r = await window.gbpAPI(action); window.hideWhisper(); if (r && r.success) addAI('&#x2705; <strong>Post published</strong> to Google Business Profile.'); else addAI('<strong>Publish issue:</strong> ' + esc(JSON.stringify(r))); }
-  catch(e) { window.hideWhisper(); addAI('<strong>Publish failed:</strong> ' + esc(e.message)); }
-}
-
-async function confirmGBPAction(btn, action) {
-  btn.parentNode.innerHTML = '<em>Applying...</em>';
-  window.showStatusExact('Updating Google Business Profile...');
   try {
     var r = await window.gbpAPI(action); window.hideWhisper();
     if (r && r.success) {
-      var msgs = { replyReview: '&#x2705; Review reply posted.', updateHours: '&#x2705; Hours updated.', updateSpecialHours: '&#x2705; Special hours set.', updateDescription: '&#x2705; Description updated.' };
-      addAI(msgs[action.action] || '&#x2705; Done.');
-    } else { addAI('<strong>Issue:</strong> ' + esc(JSON.stringify(r))); }
-  } catch(e) { window.hideWhisper(); addAI('<strong>Failed:</strong> ' + esc(e.message)); }
+      addAI('&#x2705; <strong>Post published</strong> to Google Business Profile.' + (r.postUrl ? ' <a href="' + r.postUrl + '" target="_blank" style="color:var(--accent)">View post</a>' : ''));
+      if (typeof window.pushConvo === 'function') {
+        window.pushConvo('user',      '[TOOL_RESULT gbp:createPost]\n{"success":true,"postName":"' + (r.postName||'') + '"}');
+        window.pushConvo('assistant', 'Post published successfully to Google Business Profile.');
+      }
+      window.saveCurrentMessages && window.saveCurrentMessages();
+    } else {
+      addAI('<strong>Publish issue:</strong> ' + esc(JSON.stringify(r)));
+      if (typeof window.pushConvo === 'function') {
+        window.pushConvo('user', '[TOOL_RESULT gbp:createPost]\n{"success":false}');
+        window.pushConvo('assistant', 'Post publish failed: ' + JSON.stringify(r));
+      }
+    }
+  } catch(e) {
+    window.hideWhisper();
+    addAI('<strong>Publish failed:</strong> ' + esc(e.message));
+    if (typeof window.pushConvo === 'function') {
+      window.pushConvo('user', '[TOOL_RESULT gbp:createPost]\nERROR: ' + e.message);
+      window.pushConvo('assistant', 'Post publish failed: ' + e.message);
+    }
+  }
+}
+
+async function confirmGBPAction(btn, action) {
+  var applyingEl = btn.parentNode;
+  applyingEl.innerHTML = '<em style="color:var(--text3);font-size:13px">&#x1F504; Applying...</em>';
+  window.showStatusExact && window.showStatusExact('Updating Google Business Profile...');
+
+  var toolResult;
+  try {
+    var r = await window.gbpAPI(action);
+    window.hideWhisper && window.hideWhisper();
+
+    if (r === null) {
+      // gbpAPI handled auth internally (showed connect link) — just clean up
+      applyingEl.innerHTML = '<em style="color:var(--text3);font-size:12px">GBP auth required — see message above.</em>';
+      return;
+    }
+
+    if (r && r.success) {
+      toolResult = '[TOOL_RESULT gbp:' + action.action + ']
+{"success":true,"action":"' + action.action + '"}
+[/TOOL_RESULT]';
+    } else {
+      toolResult = '[TOOL_RESULT gbp:' + action.action + ']
+{"success":false,"response":' + JSON.stringify(r) + '}
+[/TOOL_RESULT]';
+    }
+  } catch(e) {
+    window.hideWhisper && window.hideWhisper();
+    toolResult = '[TOOL_RESULT gbp:' + action.action + ']
+ERROR: ' + e.message + '
+[/TOOL_RESULT]';
+  }
+
+  // Commit tool result to conversation history
+  if (typeof window.pushConvo === 'function') window.pushConvo('user', toolResult);
+
+  // Ask the AI to confirm — it now has the real tool result in context
+  var confirmPrompt = toolResult + '
+
+Confirm the result of this GBP action to Fahad clearly and directly. '
+    + 'If success:true, tell him exactly what was updated and that it is live on Google. '
+    + 'If error, explain what went wrong and what to do next. Be specific, no hedging.';
+
+  var replyEl     = addAI('');
+  var replyBubble = replyEl.querySelector('.bubble');
+  var buf = '';
+  var cur = document.createElement('span'); cur.className = 'cursor';
+  replyBubble.innerHTML = ''; replyBubble.appendChild(cur);
+
+  try {
+    var aiReply = await window.callAI(confirmPrompt, function(chunk) {
+      buf += chunk;
+      replyBubble.innerHTML = window.fmt(buf);
+      replyBubble.appendChild(cur);
+      window.scrollBot && window.scrollBot();
+    }, [], false);
+
+    window.hideWhisper && window.hideWhisper();
+    replyBubble.innerHTML = window.fmt(aiReply);
+    window.scrollBot && window.scrollBot();
+
+    if (typeof window.pushConvo === 'function') window.pushConvo('assistant', aiReply);
+    window.saveCurrentMessages && window.saveCurrentMessages();
+  } catch(e) {
+    window.hideWhisper && window.hideWhisper();
+    replyBubble.innerHTML = '<strong>Could not get confirmation:</strong> ' + esc(e.message);
+  }
 }
 
 // ── UI Callbacks for api.js ────────────────────────────
