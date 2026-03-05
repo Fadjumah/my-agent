@@ -849,7 +849,8 @@ function handleGBPAction(action, agentRaw) {
       var gbpResponse = await window.callAI(toolResultText, function(chunk) {
         buf += chunk;
         window.hideWhisper();
-        readBubble.innerHTML = fmt(buf);
+        // Strip action tags during streaming so they never render raw
+        readBubble.innerHTML = fmt(window.stripActionTags ? window.stripActionTags(buf) : buf);
         readBubble.appendChild(cur);
         scrollBot();
       }, [], false);
@@ -861,8 +862,18 @@ function handleGBPAction(action, agentRaw) {
       }
 
       window.hideWhisper();
-      readBubble.innerHTML = fmt(gbpResponse);
+
+      // Strip tags from final display
+      var cleanGbpResponse = window.stripActionTags ? window.stripActionTags(gbpResponse) : gbpResponse;
+      readBubble.innerHTML = fmt(cleanGbpResponse);
       scrollBot();
+
+      // If the continuation itself contains action tags (e.g. chained getLocations after getAccounts)
+      // pipe it through handleResponse so the next action actually fires
+      if (/\[ACTION:/.test(gbpResponse) && typeof window.handleResponse === 'function') {
+        await window.handleResponse(gbpResponse, readEl);
+      }
+
     } catch(e) {
       window.hideWhisper();
       readBubble.innerHTML = '<strong>GBP summarise error:</strong> ' + esc(e.message);
