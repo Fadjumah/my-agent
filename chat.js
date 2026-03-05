@@ -111,9 +111,9 @@ function newChat() {
   window.set('conversation', []);
   window._pendingAttachments = [];
   renderMessages([]);
-  window.showWelcome();
+  if (typeof window.showWelcome === 'function') window.showWelcome();
   renderChatList();
-  window.closeSidebar();
+  if (typeof window.closeSidebar === 'function') window.closeSidebar();
   var inp = document.getElementById('userInput');
   if (inp) inp.focus();
 }
@@ -125,7 +125,7 @@ function switchToSession(id) {
   window.set('conversation', session.messages || []);
   renderMessages(session.messages || []);
   renderChatList();
-  window.closeSidebar();
+  if (typeof window.closeSidebar === 'function') window.closeSidebar();
 }
 
 function renderChatList() {
