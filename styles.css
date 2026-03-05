@@ -859,6 +859,103 @@ textarea.field-input{min-height:80px;resize:vertical;line-height:1.6;}
   opacity: 0.7;
 }
 
+/* ── PLANNING STATUS — wave shimmer ─────────────────────────── */
+.whisper {
+  overflow: hidden;
+}
+.whisper .whisper-text {
+  position: relative;
+  display: inline-block;
+}
+.whisper .whisper-text::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0; top: 0;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(228,228,231,0.9) 40%,
+    rgba(255,255,255,1) 50%,
+    rgba(228,228,231,0.9) 60%,
+    transparent 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-size: 200% 100%;
+  animation: whisperWave 2s linear infinite;
+  white-space: nowrap;
+}
+@keyframes whisperWave {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* ── PLANNING PANEL (inline message) ────────────────────────── */
+.plan-panel {
+  background: rgba(27,27,30,0.95);
+  border: 1px solid rgba(63,63,70,0.6);
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin: 4px 0;
+  font-size: 13px;
+  line-height: 1.7;
+}
+.plan-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
+}
+.plan-header-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent-hi);
+  box-shadow: 0 0 6px rgba(161,161,170,0.6);
+  animation: pulse 1.5s infinite;
+  flex-shrink: 0;
+}
+.plan-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 3px 0;
+  color: var(--text3);
+  font-size: 12.5px;
+  transition: color 0.2s;
+  border-left: 2px solid transparent;
+  padding-left: 8px;
+  margin-left: 2px;
+}
+.plan-step.active {
+  color: var(--text);
+  border-left-color: var(--accent-hi);
+}
+.plan-step.done {
+  color: var(--green);
+  border-left-color: rgba(34,197,94,0.3);
+}
+.plan-step.error {
+  color: var(--red);
+  border-left-color: rgba(239,68,68,0.3);
+}
+.plan-step-icon { font-size: 12px; flex-shrink: 0; margin-top: 1px; width: 14px; }
+.plan-step-text { flex: 1; }
+.plan-step-detail { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.plan-divider { height: 1px; background: var(--border); margin: 8px 0; opacity: 0.5; }
+.plan-summary {
+  font-size: 12px;
+  color: var(--text2);
+  padding-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* ══════════════════════════════════════════════════════════
    MOBILE RESPONSIVE — full rewrite for screens ≤ 700px
    Covers: layout, typography, input, tables, code, modals,
