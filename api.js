@@ -221,8 +221,17 @@ async function gbpAPI(payload) {
   var data; try { data = text ? JSON.parse(text) : {}; } catch(e) { throw new Error('GBP invalid response: ' + text.slice(0, 120)); }
   if (r.status === 401) {
     if (data.needsAuth) {
+      // Check if this is a missing env var (config issue) vs first-time OAuth needed
+      var errMsg   = data.error || '';
+      var isConfig = /GBP_REFRESH_TOKEN|env var|GBP_CLIENT/i.test(errMsg) || /Token refresh failed/i.test(errMsg);
+      if (isConfig) {
+        // Config problem — tell Fahad exactly what to add to Vercel, not a connect link
+        var hint = data.fix || 'Add GBP_REFRESH_TOKEN, GBP_CLIENT_ID, GBP_CLIENT_SECRET, GBP_ACCOUNT_ID, GBP_LOCATION_ID to Vercel environment variables.';
+        throw new Error('GBP config issue: ' + errMsg + '\n\n' + hint);
+      }
+      // First-time OAuth needed — show the connect link
       var authUrl = window.location.origin + '/api/gbp-auth?user=' + (window.get('userName', 'admin') || 'admin').toLowerCase();
-      window.addAI('GBP not connected. <a href="' + authUrl + '" target="_blank" style="color:var(--accent)">Click to connect</a>.');
+      window.addAI('&#x1F4CB; GBP needs one-time authorisation. <a href="' + authUrl + '" target="_blank" style="color:var(--accent);font-weight:600">Click here to connect</a> — this only happens once.');
       return null;
     }
     window.handleSessionExpiry(); throw new Error('Session expired.');
