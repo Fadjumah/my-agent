@@ -82,7 +82,7 @@ function updateStatus() {
   if (n) {
     var at = document.getElementById('agentTitle');
     var wt = document.getElementById('welcomeTitle');
-    if (at) at.textContent = n + "'s Agent";
+    if (at) at.textContent = 'Synapse';  // brand name — not user-tagged
     if (wt) wt.textContent = 'Welcome back, ' + n + ' ✦';
   }
   if (rn) {
@@ -935,34 +935,23 @@ async function confirmGBPAction(btn, action) {
     window.hideWhisper && window.hideWhisper();
 
     if (r === null) {
-      // gbpAPI handled auth internally (showed connect link) — just clean up
       applyingEl.innerHTML = '<em style="color:var(--text3);font-size:12px">GBP auth required — see message above.</em>';
       return;
     }
 
     if (r && r.success) {
-      toolResult = '[TOOL_RESULT gbp:' + action.action + ']
-{"success":true,"action":"' + action.action + '"}
-[/TOOL_RESULT]';
+      toolResult = '[TOOL_RESULT gbp:' + action.action + ']\n{"success":true,"action":"' + action.action + '"}\n[/TOOL_RESULT]';
     } else {
-      toolResult = '[TOOL_RESULT gbp:' + action.action + ']
-{"success":false,"response":' + JSON.stringify(r) + '}
-[/TOOL_RESULT]';
+      toolResult = '[TOOL_RESULT gbp:' + action.action + ']\n{"success":false,"response":' + JSON.stringify(r) + '}\n[/TOOL_RESULT]';
     }
   } catch(e) {
     window.hideWhisper && window.hideWhisper();
-    toolResult = '[TOOL_RESULT gbp:' + action.action + ']
-ERROR: ' + e.message + '
-[/TOOL_RESULT]';
+    toolResult = '[TOOL_RESULT gbp:' + action.action + ']\nERROR: ' + e.message + '\n[/TOOL_RESULT]';
   }
 
-  // Commit tool result to conversation history
   if (typeof window.pushConvo === 'function') window.pushConvo('user', toolResult);
 
-  // Ask the AI to confirm — it now has the real tool result in context
-  var confirmPrompt = toolResult + '
-
-Confirm the result of this GBP action to Fahad clearly and directly. '
+  var confirmPrompt = toolResult + '\n\nConfirm the result of this GBP action to Fahad clearly and directly. '
     + 'If success:true, tell him exactly what was updated and that it is live on Google. '
     + 'If error, explain what went wrong and what to do next. Be specific, no hedging.';
 
