@@ -730,12 +730,19 @@ function clearMemory() {
 }
 
 function clearAllChats() {
-  if (!confirm('Delete all chat history?')) return;
-  window.set('sessions', []); window.set('conversation', []); window.set('currentSession', null);
+  if (!confirm('Delete all chat history? This cannot be undone.')) return;
+  // Wipe local + cloud
+  if (typeof window.deleteAllChats === 'function') {
+    window.deleteAllChats(); // handles local + cloud wipe
+  } else {
+    window.set('sessions', []); window.set('conversation', []); window.set('currentSession', null);
+  }
   window.renderChatList && window.renderChatList();
   window.renderMessages && window.renderMessages([]);
   showWelcome();
   closeSettings();
+  // Start fresh session
+  setTimeout(function() { window.newChat && window.newChat(); }, 100);
 }
 
 function toggleSection(id, rowEl) {
