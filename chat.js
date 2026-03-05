@@ -270,12 +270,13 @@ function reasoningGate(text) {
   }
   if (/^what (mode|modes?)/.test(t))
     return window.currentMode === 'code' ? 'Code Mode — strict execution.' : 'Strategic Mode — planning and thinking.';
-  if (/get.*gbp.*accounts?|get.*my.*accounts?.*gbp/i.test(t)) { window.handleGBPAction({ action: 'getAccounts' }); return '__ASYNC__'; }
-  if (/get.*gbp.*locations?/i.test(t)) { window.handleGBPAction({ action: 'getLocations' }); return '__ASYNC__'; }
-  if (/get.*my.*reviews?|list.*reviews?/i.test(t)) { window.handleGBPAction({ action: 'getReviews' }); return '__ASYNC__'; }
-  if (/gbp.*profile/i.test(t)) { window.handleGBPAction({ action: 'getProfile' }); return '__ASYNC__'; }
-  if (/what.*(know|learned|remember|noticed).*(me|my)/i.test(t) || /show.*my.*profile/i.test(t)) { window.fetchAndShowProfileSummary(); return '__ASYNC__'; }
-  if (/weekly digest/i.test(t)) { window.fetchAndShowDigest(); return '__ASYNC__'; }
+  // Standalone GBP shorthand — no agentRaw since user triggered directly
+  if (/get.*gbp.*accounts?|get.*my.*accounts?.*gbp/i.test(t))  { pushConvo('user', text); window.handleGBPAction({ action: 'getAccounts'  }); return '__ASYNC__'; }
+  if (/get.*gbp.*locations?/i.test(t))                         { pushConvo('user', text); window.handleGBPAction({ action: 'getLocations' }); return '__ASYNC__'; }
+  if (/get.*my.*reviews?|list.*reviews?/i.test(t))             { pushConvo('user', text); window.handleGBPAction({ action: 'getReviews'   }); return '__ASYNC__'; }
+  if (/gbp.*profile/i.test(t))                                 { pushConvo('user', text); window.handleGBPAction({ action: 'getProfile'   }); return '__ASYNC__'; }
+  if (/what.*(know|learned|remember|noticed).*(me|my)/i.test(t) || /show.*my.*profile/i.test(t)) { pushConvo('user', text); window.fetchAndShowProfileSummary(); return '__ASYNC__'; }
+  if (/weekly digest/i.test(t)) { pushConvo('user', text); window.fetchAndShowDigest(); return '__ASYNC__'; }
   return null;
 }
 
@@ -333,27 +334,125 @@ async function handleResponse(raw, msgEl) {
   if (display && bubble) bubble.innerHTML = window.fmt(display);
   window.scrollBot();
 
-  // GitHub
+  // ── GitHub action ─────────────────────────────────────────────────────────
   if (ghMatch) {
     var ghPayload;
-    try { ghPayload = window.safeParseJSON(ghMatch[1]); } catch(e) { window.addAI('GitHub JSON malformed.'); return; }
-    window.showStatusExact('GitHub: ' + ghPayload.action + (ghPayload.path ? ' → ' + ghPayload.path : '') + '...');
-    var fetchEl = window.addAI('<em>Loading...</em>');
+    try { ghPayload = window.safeParseJSON(ghMatch[1]); } catch(e) { window.addAI('GitHub JSON malformed. Rephrase.'); return; }
+
+    var ghAction   = ghPayload.action || 'unknown';
+    var ghStatusMsg = ghAction === 'getFile'      ? 'Reading ' + (ghPayload.path||'') + ' from ' + (ghPayload.repo||'GitHub') + '...'
+                    : ghAction === 'listRepos'    ? 'Fetching repository list from GitHub...'
+                    : ghAction === 'listFiles'    ? 'Listing files in ' + (ghPayload.path||'/') + '...'
+                    : ghAction === 'listCommits'  ? 'Fetching commit history for ' + (ghPayload.repo||'') + '...'
+                    : ghAction === 'pushFile'     ? 'Pushing ' + (ghPayload.path||'file') + ' to ' + (ghPayload.branch||'main') + ' branch...'
+                    : ghAction === 'scanSecrets'  ? 'Scanning ' + (ghPayload.path||'file') + ' for exposed secrets...'
+                    : ghAction === 'revertFile'   ? 'Reverting ' + (ghPayload.path||'file') + ' to ' + (ghPayload.commitSha||'prior commit') + '...'
+                    : ghAction === 'getDiff'      ? 'Comparing ' + (ghPayload.path||'file') + ' between refs...'
+                    : ghAction === 'analyzeImpact'? 'Analysing change impact for ' + (ghPayload.repo||'') + '...'
+                    : 'Calling GitHub API: ' + ghAction + '...';
+
+    window.showWhisper(ghStatusMsg);
+    var fetchEl   = window.addAI('<em style="color:var(--text3);font-size:13px">&#x1F504; ' + window.esc(ghStatusMsg) + '</em>');
+    var fBubble   = fetchEl.querySelector('.bubble');
+
+    var ghResult;
     try {
-      var ghResult = await window.githubAPI(ghPayload);
+      ghResult = await window.githubAPI(ghPayload);
       window.hideWhisper();
-      var followUp = 'GitHub data (' + ghPayload.action + '):\n\n' + JSON.stringify(ghResult, null, 2) + '\n\nSummarise clearly in plain language.';
+    } catch(e) {
+      window.hideWhisper();
+      fBubble.innerHTML = (e.friendlyHTML || ('&#x274C; GitHub error: ' + window.esc(e.message)));
+      return;
+    }
+
+    // ── Handle special error responses ──────────────────────────────────────
+    if (ghResult && ghResult.error === 'SECRETS_DETECTED') {
+      var secMsg = '&#x26A0;&#xFE0F; <strong>Push aborted — secrets detected in ' + window.esc(ghPayload.path||'file') + ':</strong><br/><br/>';
+      (ghResult.secrets||[]).forEach(function(s) {
+        secMsg += '&#x2022; <code>' + window.esc(s.type) + '</code> at line ' + s.line + '<br/>';
+      });
+      secMsg += '<br/>Remove secrets and use environment variables before pushing.';
+      fBubble.innerHTML = secMsg;
+      // Inject the block into conversation so the agent knows what happened
       pushConvo('assistant', raw);
-      pushConvo('user', followUp);
-      var fBubble = fetchEl.querySelector('.bubble');
-      var fBuf = '';
-      var fCursor = document.createElement('span'); fCursor.className = 'cursor';
-      fBubble.innerHTML = ''; fBubble.appendChild(fCursor);
-      var sum = await window.callAI(followUp, function(c) { fBuf += c; fBubble.innerHTML = window.fmt(fBuf); fBubble.appendChild(fCursor); window.scrollBot(); });
-      fBubble.innerHTML = window.fmt(sum.replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g, '').replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g, '').trim());
-      pushConvo('assistant', sum);
-    } catch(e) { window.hideWhisper(); fetchEl.querySelector('.bubble').innerHTML = e.friendlyHTML || ('❌ ' + window.esc(e.message)); }
+      pushConvo('user', '[TOOL_RESULT github:' + ghAction + '] ABORTED — secrets detected: ' + JSON.stringify(ghResult.secrets));
+      pushConvo('assistant', secMsg.replace(/<[^>]+>/g, ''));
+      return;
+    }
+
+    if (ghResult && ghResult.error === 'CONFLICT') {
+      var conflictMsg = '&#x1F6A8; <strong>Push conflict:</strong> ' + window.esc(ghResult.message||'Remote changed since last read.');
+      fBubble.innerHTML = conflictMsg;
+      pushConvo('assistant', raw);
+      pushConvo('user', '[TOOL_RESULT github:' + ghAction + '] CONFLICT — ' + (ghResult.message||'Remote changed.'));
+      pushConvo('assistant', conflictMsg.replace(/<[^>]+>/g, ''));
+      return;
+    }
+
+    // ── Show audit entry + diff for pushFile ────────────────────────────────
+    if (ghAction === 'pushFile' && ghResult && ghResult.auditEntry) {
+      if (typeof window.showAuditEntry === 'function') window.showAuditEntry(ghResult.auditEntry, ghResult.diff);
+      var auditLog = window.get('auditLog', []);
+      auditLog.unshift(ghResult.auditEntry);
+      if (auditLog.length > 50) auditLog.splice(50);
+      window.set('auditLog', auditLog);
+    }
+
+    // ── Build tool result message and inject into conversation ───────────────
+    // Compact the result for large payloads (file content > 6KB → truncate)
+    var resultForContext = ghResult;
+    if (ghResult && ghResult.content && ghResult.content.length > 6000) {
+      resultForContext = Object.assign({}, ghResult, {
+        content: ghResult.content.slice(0, 6000) + '\n... [truncated — ' + (ghResult.content.length - 6000) + ' more chars]',
+        _truncated: true,
+      });
+    }
+
+    var toolResultText = '[TOOL_RESULT github:' + ghAction + ']\n'
+      + JSON.stringify(resultForContext, null, 2)
+      + '\n[/TOOL_RESULT]\n\nBased on this result, respond to the user. Be specific and concise. Never print raw JSON.';
+
+    // Step 1: commit agent's action message to history
+    pushConvo('assistant', raw);
+
+    // Step 2: stream agent's continuation — passing tool result as the new user turn
+    // (NOT pre-committed so it's not doubled in the backend history)
+    window.showWhisper('Processing result...');
+    var fBuf    = '';
+    var fCursor = document.createElement('span'); fCursor.className = 'cursor';
+    fBubble.innerHTML = ''; fBubble.appendChild(fCursor);
+
+    var continuation;
+    try {
+      continuation = await window.callAI(toolResultText, function(chunk) {
+        fBuf += chunk;
+        window.hideWhisper();
+        fBubble.innerHTML = window.fmt(stripActionTags(fBuf));
+        fBubble.appendChild(fCursor);
+        window.scrollBot();
+      });
+    } catch(e) {
+      window.hideWhisper();
+      fBubble.innerHTML = e.friendlyHTML || ('&#x274C; ' + window.esc(e.message));
+      return;
+    }
+
+    window.hideWhisper();
+
+    // Step 3: commit tool result (as user) + agent continuation (as assistant)
+    pushConvo('user', toolResultText);
+    pushConvo('assistant', continuation);
+
+    // Step 4: render final display (strip any action tags from continuation)
+    var cleanContinuation = stripActionTags(continuation);
+    fBubble.innerHTML = window.fmt(cleanContinuation);
     window.scrollBot();
+
+    // Step 5: if the continuation itself has action tags, run it through handleResponse too
+    if (/\[ACTION:/.test(continuation)) {
+      await handleResponse(continuation, fetchEl);
+    }
+
     return;
   }
 
@@ -365,11 +464,13 @@ async function handleResponse(raw, msgEl) {
     else window.addAI('Deploy action had no files.');
   }
 
-  // GBP
+  // ── GBP action ─────────────────────────────────────────────────────────────
   if (gbpMatch) {
     var gbpAction;
     try { gbpAction = window.safeParseJSON(gbpMatch[1]); } catch(e) { window.addAI('GBP JSON malformed.'); return; }
-    window.handleGBPAction(gbpAction);
+    // Commit agent message first so GBP result has context
+    pushConvo('assistant', raw);
+    window.handleGBPAction(gbpAction, raw);
   }
 
   // Autonomous plan
