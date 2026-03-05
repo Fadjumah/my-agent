@@ -20,44 +20,47 @@ async function initApp() {
   // 2. Init extended thinking state
   window.initThinkingBtn && window.initThinkingBtn();
 
-  // 3. Cloud sync
-  await window.syncFromCloud();
+  // 3. Cloud sync — 5s timeout so a slow Supabase never hangs the whole app
+  try {
+    await Promise.race([
+      window.syncFromCloud ? window.syncFromCloud() : Promise.resolve(),
+      new Promise(function(_, rej) { setTimeout(function() { rej(new Error('sync timeout')); }, 5000); })
+    ]);
+  } catch(e) { console.warn('[initApp] cloud sync skipped:', e.message); }
 
   // 4. Fetch instructions.md from GitHub (1-hour cached)
   window.loadInstructions && window.loadInstructions().then(function(instr) {
     if (instr) console.log('[instructions] ready (' + instr.length + ' chars)');
   });
 
-  // 5. Session bootstrap — save any existing session, then always open fresh
-  var prevId = window.getCurrentSessionId();
-  if (prevId) {
-    window.saveCurrentMessages && window.saveCurrentMessages(); // persist old session
-    if (typeof window.syncKeyToCloud === 'function') window.syncKeyToCloud('sessions', window.get('sessions', []));
-  }
-  window.setMode(window.get('mode', 'strategic'));
-  window.updateStatus();
-  window.renderChatList();
+  // 5. Save existing session to cloud before opening fresh (don't lose work)
+  var prevId = window.getCurrentSessionId ? window.getCurrentSessionId() : null;
+  if (prevId && window.saveCurrentMessages) window.saveCurrentMessages();
 
-  // 6. Always start fresh on login — previous chats are in the sidebar
+  // 6. Mode + UI (safe — these are always defined before initApp can be called)
+  window.setMode && window.setMode(window.get('mode', 'strategic'));
+  window.updateStatus && window.updateStatus();
+  window.renderChatList && window.renderChatList();
+
+  // 7. Always open a fresh chat — previous sessions visible in sidebar
   window.newChat && window.newChat();
 
-  // 7. First run
-  if (!window.get('setupDone')) setTimeout(window.openSettings, 700);
+  // 8. First run setup
+  if (!window.get('setupDone')) setTimeout(function() { window.openSettings && window.openSettings(); }, 700);
 
-  // 8. Gemini countdown
-  if (window.isGeminiLimited()) window.startCountdown();
+  // 9. Gemini countdown
+  window.isGeminiLimited && window.isGeminiLimited() && window.startCountdown && window.startCountdown();
 
-  // 9. Adaptive learning profile
-  window.fetchAdaptiveProfile().then(function(p) {
-    if (p) { window._adaptiveProfile = p; console.log('[learn] profile loaded:', p.totalInteractions || 0, 'interactions'); }
-  });
+  // 10. Adaptive learning profile (background, non-blocking)
+  window.fetchAdaptiveProfile && window.fetchAdaptiveProfile().then(function(p) {
+    if (p) { window._adaptiveProfile = p; }
+  }).catch(function(){});
 
-  // 10. Daily analysis
-  window.maybeRunDailyAnalysis();
+  // 11. Daily analysis (background)
+  window.maybeRunDailyAnalysis && window.maybeRunDailyAnalysis();
 
-  // 11. Focus input
-  var _inp = document.getElementById('userInput');
-  if (_inp) _inp.focus();
+  // 12. Focus input
+  setTimeout(function() { var i = document.getElementById('userInput'); if (i) i.focus(); }, 100);
 }
 
 window.initApp = initApp;
