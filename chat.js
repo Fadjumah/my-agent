@@ -4,6 +4,23 @@
 //   extended thinking, attachments, audit trail
 // ═══════════════════════════════════════════════════════
 
+// ── Strip action tags — defined first, called everywhere ──────────────────
+// Must be a plain function (not arrow, not const) so it hoists above all callers.
+function stripActionTags(raw) {
+  if (!raw) return '';
+  return raw
+    .replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g, '')
+    .replace(/\[ACTION:DEPLOY\][\s\S]*?\[\/ACTION:DEPLOY\]/g, '')
+    .replace(/\[ACTION:GBP\][\s\S]*?\[\/ACTION:GBP\]/g, '')
+    .replace(/\[ACTION:PLAN\][\s\S]*?\[\/ACTION:PLAN\]/g, '')
+    .replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g, '')
+    .replace(/\[ACTION:[A-Z_:]*$/, '')          // strip partial tag at stream end
+    .replace(/\[MEMORY[^\]]*$/, '')
+    .trim();
+}
+window.stripActionTags = stripActionTags;  // expose immediately, before any module callbacks
+
+
 var HISTORY_TOKEN_BUDGET = 3000;
 var SUMMARY_KEEP_RECENT  = 6;
 
@@ -614,6 +631,7 @@ async function sendMessage() {
 }
 
 Object.assign(window, {
+  stripActionTags,
   pushConvo, getCompactHistory,
   getSessions, getCurrentSessionId, saveSession, loadSession, deleteSession,
   newChat, switchToSession, renderChatList, saveCurrentMessages, renderMessages,
