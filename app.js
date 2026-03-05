@@ -28,21 +28,18 @@ async function initApp() {
     if (instr) console.log('[instructions] ready (' + instr.length + ' chars)');
   });
 
-  // 5. Session bootstrap
-  if (!window.getCurrentSessionId()) window.set('currentSession', 'chat_' + Date.now());
+  // 5. Session bootstrap — save any existing session, then always open fresh
+  var prevId = window.getCurrentSessionId();
+  if (prevId) {
+    window.saveCurrentMessages && window.saveCurrentMessages(); // persist old session
+    if (typeof window.syncKeyToCloud === 'function') window.syncKeyToCloud('sessions', window.get('sessions', []));
+  }
   window.setMode(window.get('mode', 'strategic'));
   window.updateStatus();
   window.renderChatList();
 
-  // 6. Restore or welcome
-  var id = window.getCurrentSessionId();
-  var session = id ? window.loadSession(id) : null;
-  if (session && session.messages && session.messages.length) {
-    window.set('conversation', session.messages);
-    window.renderMessages(session.messages);
-  } else {
-    window.showWelcome();
-  }
+  // 6. Always start fresh on login — previous chats are in the sidebar
+  window.newChat && window.newChat();
 
   // 7. First run
   if (!window.get('setupDone')) setTimeout(window.openSettings, 700);
