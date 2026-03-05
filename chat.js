@@ -257,7 +257,29 @@ function sysPrompt() {
 
   var actionTagRules = '\n\nCRITICAL: NEVER display [ACTION:*], [MEMORY], or any raw tag syntax to the user. Execute tags silently, show only results.';
 
-  var synapseId = 'You are Synapse — not a generic assistant. This is your name and you carry it with full self-awareness. Synapse is precise, technically fluent, confident, and never generic. Own the identity in tone and delivery.\n\n';
+  var synapseId = 'You are Synapse — a precision execution agent, not a generic assistant.\n'
+    + '\n'
+    + 'EXECUTION PHILOSOPHY — The Scofield Method:\n'
+    + 'Before touching anything, you map the full terrain. You never execute blindly.\n'
+    + 'Every task follows four phases — you always announce the phase:\n'
+    + '\n'
+    + '  1. SURVEY   — Read the landscape first. getRepo, listFiles root, listFiles key dirs.\n'
+    + '               Goal: understand scope before committing to a plan.\n'
+    + '  2. MAP      — State exactly what you found and what needs doing. No ambiguity.\n'
+    + '               Goal: Fahad sees the full picture and can correct before any writes.\n'
+    + '  3. PLAN     — Emit [ACTION:PLAN] with all tasks in sequence. One plan, fully specified.\n'
+    + '               Goal: complete execution blueprint before first write.\n'
+    + '  4. EXECUTE  — Run each step, report precisely, never stop mid-task without a real blocker.\n'
+    + '               Goal: finish what was started in one session.\n'
+    + '\n'
+    + 'RULES:\n'
+    + '  - Never ask Fahad to paste results — fetch them yourself with action tags.\n'
+    + '  - Never say "waiting for results" or "let me know when ready" — just run the next action tag.\n'
+    + '  - Never fire multiple action tags in one response — one tag, wait for result, then next.\n'
+    + '  - If a step fails, diagnose it and continue the remaining steps. Do not abandon the session.\n'
+    + '  - Never truncate mid-answer. If context is tight, summarise older steps but finish the current one.\n'
+    + '  - Token efficiency: do reads in one sweep, batch writes in one DEPLOY, never re-read what you already have.\n'
+    + '\n';
 
   // Cross-chat persistent memory — loaded from cloud, available on every device
   var crossMem = typeof window.getCrossMemorySummary === 'function' ? window.getCrossMemorySummary() : '';
@@ -282,7 +304,7 @@ function sysPrompt() {
     + '  [ACTION:GBP]{"action":"getQuestions","limit":10}[/ACTION:GBP]\n'
     + '  [ACTION:GBP]{"action":"getInsights","startDate":"2026-02-01","endDate":"2026-03-01"}[/ACTION:GBP]\n'
     + '\n'
-    + '── WRITE: contact & identity (draft + get Fahad approval first) ──\n'
+    + '── WRITE (draft + get Fahad approval first) ──\n'
     + '  [ACTION:GBP]{"action":"updatePhoneNumbers","primaryPhone":"+256...","additionalPhones":["+256..."]}[/ACTION:GBP]\n'
     + '  [ACTION:GBP]{"action":"updateWebsite","websiteUri":"https://..."}[/ACTION:GBP]\n'
     + '  [ACTION:GBP]{"action":"updateAddress","address":{"regionCode":"UG","locality":"Entebbe","addressLines":["Plot 34"]}}[/ACTION:GBP]\n'
@@ -290,41 +312,59 @@ function sysPrompt() {
     + '  [ACTION:GBP]{"action":"updateDescription","description":"text"}[/ACTION:GBP]\n'
     + '  [ACTION:GBP]{"action":"updateHours","hours":{"MONDAY":{"open":"08:00","close":"20:00"}}}[/ACTION:GBP]\n'
     + '  [ACTION:GBP]{"action":"updateSpecialHours","specialHours":[{"date":"2026-12-25","closed":true}]}[/ACTION:GBP]\n'
-    + '\n'
-    + '── WRITE: posts ──\n'
     + '  [ACTION:GBP]{"action":"createPost","content":"text"}[/ACTION:GBP]\n'
     + '  [ACTION:GBP]{"action":"updatePost","postName":"accounts/.../localPosts/...","content":"new text"}[/ACTION:GBP]\n'
     + '  [ACTION:GBP]{"action":"deletePost","postName":"accounts/.../localPosts/..."}[/ACTION:GBP]\n'
-    + '\n'
-    + '── WRITE: reviews ──\n'
     + '  [ACTION:GBP]{"action":"replyReview","reviewId":"...","reply":"text"}[/ACTION:GBP]\n'
     + '  [ACTION:GBP]{"action":"deleteReviewReply","reviewId":"..."}[/ACTION:GBP]\n'
-    + '\n'
-    + '── WRITE: photos ──\n'
-    + '  [ACTION:GBP]{"action":"uploadPhoto","sourceUrl":"https://...","category":"EXTERIOR"}[/ACTION:GBP]  category: EXTERIOR|INTERIOR|PRODUCT|TEAMS|ADDITIONAL\n'
+    + '  [ACTION:GBP]{"action":"uploadPhoto","sourceUrl":"https://...","category":"EXTERIOR"}[/ACTION:GBP]\n'
     + '  [ACTION:GBP]{"action":"deletePhoto","mediaName":"accounts/.../media/..."}[/ACTION:GBP]\n'
-    + '\n'
-    + '── WRITE: Q&A ──\n'
     + '  [ACTION:GBP]{"action":"answerQuestion","questionId":"...","answer":"text"}[/ACTION:GBP]\n'
     + '  [ACTION:GBP]{"action":"deleteAnswer","questionId":"..."}[/ACTION:GBP]\n'
     + '\n'
-    + 'RULES:\n'
-    + '  - NEVER tell Fahad you cannot do something GBP-related — you have full live access right now.\n'
-    + '  - For WRITE actions: always show exactly what you will change and get explicit approval before emitting the tag.\n'
-    + '  - READ actions execute immediately and silently — no approval needed.\n'
-    + '  - Never output the raw tag text to the user — execute silently, show only the result.\n'
-    + '  - Never invent an action not in the list above.';
+    + 'GBP RULES:\n'
+    + '  - NEVER say you cannot do a GBP action — you have full live access now.\n'
+    + '  - For WRITE: always show exactly what you will change, get explicit approval, then emit the tag.\n'
+    + '  - READ tags execute immediately and silently.\n'
+    + '  - Never output raw tag text to the user.\n'
+    + '\n'
+    + 'GITHUB (available in strategic mode too — ONE tag per response):\n'
+    + '  [ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"getRepo","repo":"owner/repo"}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"listFiles","repo":"owner/repo","path":"src"}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"getFile","repo":"owner/repo","path":"src/App.tsx"}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"pushFile","repo":"owner/repo","path":"f","content":"...","commitMessage":"msg"}[/ACTION:GITHUB]\n'
+    + '  For multi-step tasks use PLAN tag (see CODE MODE instructions).';
 
-  var codeInstr = 'CODE MODE: Show precise status for every operation (exact filename + action). Full files only. No action without yes.'
-    + ' GITHUB: [ACTION:GITHUB]{"action":"getFile","repo":"owner/repo","path":"f"}[/ACTION:GITHUB]'
-    + ' [ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]'
-    + ' [ACTION:GITHUB]{"action":"scanSecrets","repo":"r","path":"p"}[/ACTION:GITHUB]'
-    + ' [ACTION:GITHUB]{"action":"checkConflict","repo":"r","path":"p","knownSha":"sha"}[/ACTION:GITHUB]'
-    + ' [ACTION:GITHUB]{"action":"getDiff","repo":"r","base":"sha1","head":"sha2"}[/ACTION:GITHUB]'
-    + ' [ACTION:GITHUB]{"action":"analyzeRepo","repo":"r"}[/ACTION:GITHUB]'
-    + ' DEPLOY: [ACTION:DEPLOY]{"repo":"...","branch":"main","commit_message":"...","files":[{"path":"...","content":"..."}]}[/ACTION:DEPLOY]'
-    + ' PLAN: [ACTION:PLAN]{"goal":"...","tasks":[{"action":"readFile","file":"..."},{"action":"pushFile","file":"...","content":"..."}]}[/ACTION:PLAN]'
-    + ' After every push: confirm exact commit SHA + file path. Never push without yes.';
+  var codeInstr = 'CODE MODE: Precise status for every operation. Full files only. No write without yes.\n'
+    + '\n'
+    + 'GITHUB ACTIONS — ONE tag per response, wait for result before next:\n'
+    + '  [ACTION:GITHUB]{"action":"listRepos"}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"getRepo","repo":"owner/repo"}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"listFiles","repo":"owner/repo","path":"src"}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"getFile","repo":"owner/repo","path":"src/App.tsx"}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"listCommits","repo":"owner/repo","limit":10}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"getDiff","repo":"owner/repo","base":"sha1","head":"sha2"}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"analyzeImpact","repo":"owner/repo"}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"scanSecrets","repo":"owner/repo","path":"f"}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"pushFile","repo":"owner/repo","path":"f","content":"...","commitMessage":"msg"}[/ACTION:GITHUB]\n'
+    + '  [ACTION:GITHUB]{"action":"revertFile","repo":"owner/repo","path":"f","commitSha":"sha"}[/ACTION:GITHUB]\n'
+    + '\n'
+    + 'PLAN TAG — use for any task with 3+ steps (reads before writes, always):\n'
+    + '  [ACTION:PLAN]{"goal":"what you are doing","tasks":[\n'
+    + '    {"action":"getRepo","repo":"owner/repo"},\n'
+    + '    {"action":"listFiles","repo":"owner/repo","path":"src"},\n'
+    + '    {"action":"getFile","repo":"owner/repo","path":"src/App.tsx"},\n'
+    + '    {"action":"pushFile","repo":"owner/repo","path":"src/App.tsx","content":"...","commitMessage":"fix: ..."}\n'
+    + '  ]}[/ACTION:PLAN]\n'
+    + '\n'
+    + 'RULES:\n'
+    + '  - ONE [ACTION:GITHUB] tag per response. Closing tag always [/ACTION:GITHUB].\n'
+    + '  - NEVER use readFile or analyzeRepo — use getFile and listFiles.\n'
+    + '  - Survey order: getRepo → listFiles root → listFiles subdirs → getFile key files.\n'
+    + '  - PLAN for complex tasks: reads first, writes after, synthesise at end.\n'
+    + '  - Never push without explicit approval from Fahad.'
+
 
   return instructionsBlock
     + base + recallCtx + '\n'
@@ -390,7 +430,10 @@ function scoreImplicitFeedback(userMsg) {
 // ── Response handler ───────────────────────────────────
 async function handleResponse(raw, msgEl) {
   var memMatches = Array.from(raw.matchAll(/\[MEMORY\]([\s\S]*?)\[\/MEMORY\]/g));
-  var ghMatch   = raw.match(/\[ACTION:GITHUB\]([\s\S]*?)\[\/ACTION:GITHUB\]/);
+  // Normalize wrong closing tags (AI sometimes emits [/ACTION:GBP] instead of [/ACTION:GITHUB])
+  var rawFixed  = raw.replace(/\[ACTION:GITHUB\]([\s\S]*?)\[\/ACTION:GBP\]/g, '[ACTION:GITHUB]$1[/ACTION:GITHUB]');
+  var ghMatches = Array.from(rawFixed.matchAll(/\[ACTION:GITHUB\]([\s\S]*?)\[\/ACTION:GITHUB\]/g));
+  var ghMatch   = ghMatches.length ? ghMatches[0] : null;  // keep compat — first match for existing flow
   var depMatch  = raw.match(/\[ACTION:DEPLOY\]([\s\S]*?)\[\/ACTION:DEPLOY\]/);
   var gbpMatch  = raw.match(/\[ACTION:GBP\]([\s\S]*?)\[\/ACTION:GBP\]/);
   var planMatch = raw.match(/\[ACTION:PLAN\]([\s\S]*?)\[\/ACTION:PLAN\]/);
@@ -421,7 +464,7 @@ async function handleResponse(raw, msgEl) {
   }
 
   // Strip ALL action tags before displaying — user never sees raw syntax
-  var display = raw
+  var display = rawFixed
     .replace(/\[MEMORY\][\s\S]*?\[\/MEMORY\]/g, '')
     .replace(/\[ACTION:GITHUB\][\s\S]*?\[\/ACTION:GITHUB\]/g, '')
     .replace(/\[ACTION:DEPLOY\][\s\S]*?\[\/ACTION:DEPLOY\]/g, '')
@@ -434,6 +477,10 @@ async function handleResponse(raw, msgEl) {
   window.scrollBot();
 
   // ── GitHub action ─────────────────────────────────────────────────────────
+  // If AI emitted multiple tags (it shouldn't but sometimes does), warn and only run first
+  if (ghMatches.length > 1) {
+    console.warn('[handleResponse] AI emitted', ghMatches.length, 'GitHub action tags — only executing the first. System prompt should enforce one-at-a-time.');
+  }
   if (ghMatch) {
     var ghPayload;
     try { ghPayload = window.safeParseJSON(ghMatch[1]); } catch(e) { window.addAI('GitHub JSON malformed. Rephrase.'); return; }
@@ -448,6 +495,7 @@ async function handleResponse(raw, msgEl) {
                     : ghAction === 'revertFile'   ? 'Reverting ' + (ghPayload.path||'file') + ' to ' + (ghPayload.commitSha||'prior commit') + '...'
                     : ghAction === 'getDiff'      ? 'Comparing ' + (ghPayload.path||'file') + ' between refs...'
                     : ghAction === 'analyzeImpact'? 'Analysing change impact for ' + (ghPayload.repo||'') + '...'
+                    : ghAction === 'getRepo'      ? 'Fetching repo info for ' + (ghPayload.repo||'') + '...'
                     : 'Calling GitHub API: ' + ghAction + '...';
 
     window.showWhisper(ghStatusMsg);
@@ -572,65 +620,155 @@ async function handleResponse(raw, msgEl) {
     window.handleGBPAction(gbpAction, raw);
   }
 
-  // Autonomous plan
+  // Autonomous plan — commit agent message first, then execute
   if (planMatch) {
     var plan;
     try { plan = window.safeParseJSON(planMatch[1]); } catch(e) { window.addAI('Plan JSON malformed.'); return; }
+    pushConvo('assistant', raw);
     var planEl = window.addAI('');
     await executePlan(plan, planEl);
   }
 }
 
-// ── Autonomous plan executor ───────────────────────────
+// ── Autonomous plan executor — Scofield method ─────────────
+// Survey → Map → Plan → Execute. Uses showPlanningPanel for live visual tracker.
 async function executePlan(plan, msgEl) {
-  var tasks  = plan.tasks || [];
-  var goal   = plan.goal  || 'Complete task';
-  var bubble = msgEl.querySelector('.bubble');
-  if (!bubble) return;
+  var tasks  = plan.tasks  || [];
+  var goal   = plan.goal   || 'Complete task';
+  var survey = plan.survey || [];   // optional pre-read steps (survey phase)
+
+  if (!tasks.length) { if (msgEl) msgEl.querySelector('.bubble').innerHTML = 'No tasks in plan.'; return; }
 
   var repo = window.get('repo1', '');
-  var log  = '<strong>&#x1F916; Autonomous — ' + window.esc(goal) + '</strong><br/><br/>';
-  bubble.innerHTML = log;
+
+  // Build step labels for the planning panel
+  var stepLabels = tasks.map(function(t) {
+    if (t.action === 'getFile' || t.action === 'readFile') return 'Read ' + (t.file || t.path || 'file');
+    if (t.action === 'listFiles')    return 'List ' + (t.path || 'directory');
+    if (t.action === 'pushFile')     return 'Push ' + (t.file || t.path || 'file');
+    if (t.action === 'scanSecrets')  return 'Scan ' + (t.file || 'file') + ' for secrets';
+    if (t.action === 'getRepo')      return 'Fetch repo metadata';
+    if (t.action === 'listCommits')  return 'Read commit history';
+    if (t.action === 'analyzeImpact') return 'Analyse change impact';
+    return t.action || 'Task';
+  });
+
+  // Create planning panel — replaces the empty msgEl bubble
+  var panel = window.showPlanningPanel(goal, stepLabels);
+  // Remove original empty msgEl since panel creates its own
+  if (msgEl && msgEl.parentNode) msgEl.parentNode.removeChild(msgEl);
+
+  var results = {};
+  var errors  = 0;
 
   for (var i = 0; i < tasks.length; i++) {
-    var task = tasks[i];
-    log += '<div style="padding:4px 0 4px 10px;border-left:2px solid var(--accent);margin:4px 0;">';
-    log += '&#x23F3; Step ' + (i+1) + '/' + tasks.length + ': ' + window.esc(task.action || 'task');
-    bubble.innerHTML = log + '</div>';
-    window.scrollBot();
+    var task   = tasks[i];
+    var taskRepo = task.repo || repo;
+
+    panel.setActive(i, stepLabels[i] + '...');
+    await new Promise(function(r) { setTimeout(r, 80); }); // let UI paint
 
     try {
       if (task.action === 'readFile' || task.action === 'getFile') {
-        window.showStatusExact('Reading ' + task.file + ' from ' + repo + '...');
-        var r = await window.githubAPI({ action: 'getFile', repo: repo, path: task.file });
+        var filePath = task.file || task.path;
+        var r = await window.githubAPI({ action: 'getFile', repo: taskRepo, path: filePath });
         task._result = r;
-        log += ' &#x2705; Read ' + task.file;
-      } else if (task.action === 'pushFile') {
-        window.showStatusExact('Pushing ' + task.file + ' to ' + (task.branch || 'main') + '...');
-        var pr = await window.pushFileWithRetry({ repo: repo, path: task.file, content: task.content || (task._result && task._result.content) || '', commitMessage: task.commitMessage || ('auto: ' + goal.slice(0, 50)), branch: task.branch || 'main' });
-        log += ' &#x2705; Pushed ' + task.file + ' — <code>' + (pr.sha || '?') + '</code>';
-        window.logAuditEntry({ action: 'push', repo: repo, path: task.file, sha: pr.sha, message: task.commitMessage });
+        results[filePath] = r.content;
+        panel.setDone(i, filePath + ' · ' + Math.round((r.content || '').length / 1024 * 10) / 10 + ' KB');
+
+      } else if (task.action === 'listFiles') {
+        var dirPath = task.path || '';
+        var r2 = await window.githubAPI({ action: 'listFiles', repo: taskRepo, path: dirPath });
+        task._result = r2;
+        var fileCount = (r2.files || []).length;
+        panel.setDone(i, fileCount + ' items in /' + (dirPath || 'root'));
+
+      } else if (task.action === 'getRepo') {
+        var r3 = await window.githubAPI({ action: 'getRepo', repo: taskRepo });
+        task._result = r3;
+        panel.setDone(i, (r3.language || 'unknown') + ' · ' + (r3.description || 'no description').slice(0, 60));
+
+      } else if (task.action === 'listCommits') {
+        var r4 = await window.githubAPI({ action: 'listCommits', repo: taskRepo, limit: task.limit || 10 });
+        task._result = r4;
+        panel.setDone(i, (r4.commits || []).length + ' commits');
+
       } else if (task.action === 'scanSecrets') {
-        window.showStatusExact('Scanning ' + task.file + ' for secrets...');
-        var sr = await window.githubAPI({ action: 'scanSecrets', repo: repo, path: task.file });
-        log += sr.clean ? ' &#x2705; Clean: ' + task.file : ' &#x26D4; Secrets in ' + task.file + ': ' + sr.secrets.map(function(s) { return s.type; }).join(', ');
+        var r5 = await window.githubAPI({ action: 'scanSecrets', repo: taskRepo, path: task.file });
+        task._result = r5;
+        panel.setDone(i, r5.clean ? 'Clean — no secrets found' : r5.secrets.length + ' secret(s) detected');
+
+      } else if (task.action === 'pushFile') {
+        var pushContent = task.content || (task._sourceResult && task._sourceResult.content) || '';
+        var r6 = await window.pushFileWithRetry({
+          repo: taskRepo, path: task.file || task.path,
+          content: pushContent,
+          commitMessage: task.commitMessage || ('synapse: ' + goal.slice(0, 60)),
+          branch: task.branch || 'main',
+        });
+        panel.setDone(i, 'SHA ' + (r6.sha || '?').slice(0, 8) + ' → ' + (task.branch || 'main'));
+        window.logAuditEntry({ action: 'push', repo: taskRepo, path: task.file || task.path, sha: r6.sha, message: task.commitMessage });
+
+      } else if (task.action === 'analyzeImpact') {
+        var r7 = await window.githubAPI({ action: 'analyzeImpact', repo: taskRepo });
+        task._result = r7;
+        panel.setDone(i, 'Impact analysis complete');
+
       } else {
-        log += ' &#x23ED;&#xFE0F; Unknown: ' + task.action;
+        panel.setError(i, 'Unknown action: ' + task.action);
+        errors++;
+        continue;
       }
+
     } catch(e) {
-      log += ' &#x274C; ' + window.esc(e.message);
+      panel.setError(i, e.message.slice(0, 80));
+      errors++;
     }
 
-    log += '</div>';
-    bubble.innerHTML = log;
-    window.hideWhisper();
     window.scrollBot();
-    await new Promise(function(r) { setTimeout(r, 150); });
   }
 
-  log += '<br/><strong>Done.</strong> Review above — type <strong>confirm deploy</strong> to push or <strong>cancel</strong>.';
-  bubble.innerHTML = log;
-  window.scrollBot();
+  // Summary
+  var doneCount = tasks.length - errors;
+  panel.finish(
+    doneCount + '/' + tasks.length + ' steps completed' + (errors ? ' · ' + errors + ' error(s)' : '') + ' — review above.',
+    errors === 0
+  );
+
+  // Build tool result from all gathered data and feed back to AI for synthesis
+  var gathered = tasks.filter(function(t) { return t._result; }).map(function(t) {
+    return { action: t.action, file: t.file || t.path, result: t._result };
+  });
+
+  if (gathered.length) {
+    var toolResult = '[TOOL_RESULT plan:complete]\n'
+      + JSON.stringify({ goal: goal, results: gathered }, null, 2).slice(0, 8000)
+      + '\n[/TOOL_RESULT]\n\nYou have all the data. Now give Fahad a complete, specific analysis. No truncation.';
+
+    pushConvo('user', toolResult);
+    var synthEl     = window.addAI('');
+    var synthBubble = synthEl.querySelector('.bubble');
+    var buf = '';
+    var cursor = document.createElement('span'); cursor.className = 'cursor';
+    synthBubble.appendChild(cursor);
+    window.showStatusExact('Synthesising findings...');
+
+    try {
+      var synthesis = await window.callAI(toolResult, function(chunk) {
+        buf += chunk;
+        window.hideWhisper();
+        synthBubble.innerHTML = window.fmt(stripActionTags(buf));
+        synthBubble.appendChild(cursor);
+        window.scrollBot();
+      });
+      synthBubble.innerHTML = window.fmt(stripActionTags(synthesis));
+      window.scrollBot();
+      pushConvo('assistant', synthesis);
+      saveCurrentMessages();
+    } catch(e) {
+      synthBubble.innerHTML = '&#x274C; Synthesis failed: ' + window.esc(e.message);
+    }
+  }
 }
 
 // ── Main send ──────────────────────────────────────────
