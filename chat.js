@@ -134,7 +134,12 @@ function renderChatList() {
   var sessions  = getSessions();
   var currentId = getCurrentSessionId();
   if (!sessions.length) {
-    list.innerHTML = '<div style="padding:12px 10px;font-size:11px;color:var(--text3)">No chats yet</div>';
+    list.innerHTML = '<div style="padding:12px 10px;font-size:11px;color:var(--text3)">No chats yet</div>'
+      + '<div style="padding:4px 10px 8px">'
+      + '<button onclick="window.clearAllChats && window.clearAllChats()" '
+      + 'style="width:100%;padding:6px 10px;background:transparent;border:1px solid rgba(220,60,60,0.3);'
+      + 'color:#e06060;border-radius:6px;font-size:11px;cursor:pointer;text-align:left">'
+      + '&#x1F5D1; Clear all chats</button></div>';
     return;
   }
   list.innerHTML = sessions.map(function(s) {
@@ -145,6 +150,12 @@ function renderChatList() {
       + '<button class="chat-item-del" onclick="event.stopPropagation();deleteSession(\'' + s.id + '\')" title="Delete">&#x2715;</button>'
       + '</div>';
   }).join('');
+  // Clear all chats button — always shown at bottom of sidebar
+  list.innerHTML += '<div style="padding:4px 10px 8px">'
+    + '<button onclick="window.clearAllChats && window.clearAllChats()" '
+    + 'style="width:100%;padding:6px 10px;background:transparent;border:1px solid rgba(220,60,60,0.3);'
+    + 'color:#e06060;border-radius:6px;font-size:11px;cursor:pointer;text-align:left">'
+    + '&#x1F5D1; Clear all chats</button></div>';
 }
 
 function saveCurrentMessages() {
@@ -156,6 +167,10 @@ function saveCurrentMessages() {
   var title = firstUser ? firstUser.content.slice(0, 45) + (firstUser.content.length > 45 ? '...' : '') : 'New chat';
   saveSession(id, title, conv);
   renderChatList();
+  // Immediately push sessions to cloud so other devices see this conversation
+  if (typeof window.syncKeyToCloud === 'function') {
+    window.syncKeyToCloud('sessions', window.get('sessions', []));
+  }
 }
 
 function renderMessages(messages) {
@@ -243,18 +258,30 @@ function sysPrompt() {
   var actionTagRules = '\n\nCRITICAL: NEVER display [ACTION:*], [MEMORY], or any raw tag syntax to the user. Execute tags silently, show only results.';
 
   var synapseId = 'You are Synapse — not a generic assistant. This is your name and you carry it with full self-awareness. Synapse is precise, technically fluent, confident, and never generic. Own the identity in tone and delivery.\n\n';
-  var base = synapseId + dateCtx + '\nAgent for ' + name + '. Active repo: '
+
+  // Cross-chat persistent memory — loaded from cloud, available on every device
+  var crossMem = typeof window.getCrossMemorySummary === 'function' ? window.getCrossMemorySummary() : '';
+  var memoryBlock = crossMem
+    ? '=== LONG-TERM MEMORY (from previous sessions) ===\n' + crossMem + '\n=== END MEMORY ===\n\n'
+    : '';
+
+  var base = synapseId + memoryBlock + dateCtx + '\nAgent for ' + name + '. Active repo: '
     + (repo1 || 'none') + '. '
     + aboutLine + ' ' + prefsLine + factLine
     + (adaptiveCtx ? ' ' + adaptiveCtx : '');
 
-  var strategicInstr = 'STRATEGIC MODE: Senior strategist+technologist. Think deeply, concrete actionable advice. Warm, witty.'
-    + ' GBP (Eritage ENT Care – Entebbe): [ACTION:GBP]{"action":"getAccounts"}[/ACTION:GBP]'
-    + ' {"action":"getLocations","accountId":"accounts/XXX"} {"action":"getProfile"} {"action":"getReviews"}'
-    + ' {"action":"createPost","content":"text"} {"action":"replyReview","reviewId":"...","reply":"text"}'
-    + ' {"action":"updateHours","hours":{"MONDAY":{"open":"09:00","close":"17:00"}}}'
-    + ' {"action":"updateDescription","description":"text"}'
-    + ' Always show drafts for approval before publishing.';
+  var strategicInstr = 'STRATEGIC MODE: Senior strategist+technologist. Think deeply, concrete actionable advice. Warm, witty.\n'
+    + 'YOU HAVE LIVE API ACCESS — these are not hypothetical tools, they execute immediately when you emit the tag.\n'
+    + 'GBP (Eritage ENT Care – Entebbe) LIVE ACTIONS:\n'
+    + '  READ NOW: [ACTION:GBP]{"action":"getProfile"}[/ACTION:GBP] — fetch live profile\n'
+    + '  READ NOW: [ACTION:GBP]{"action":"getReviews"}[/ACTION:GBP] — fetch reviews\n'
+    + '  READ NOW: [ACTION:GBP]{"action":"getPosts","limit":5}[/ACTION:GBP] — fetch recent posts\n'
+    + '  WRITE: [ACTION:GBP]{"action":"createPost","content":"text"}[/ACTION:GBP] — publish post (draft first, get approval)\n'
+    + '  WRITE: [ACTION:GBP]{"action":"replyReview","reviewId":"...","reply":"text"}[/ACTION:GBP]\n'
+    + '  WRITE: [ACTION:GBP]{"action":"updateHours","hours":{"MONDAY":{"open":"08:00","close":"20:00"}}}[/ACTION:GBP]\n'
+    + '  WRITE: [ACTION:GBP]{"action":"updateDescription","description":"text"}[/ACTION:GBP]\n'
+    + 'RULE: Never tell Fahad you cannot access GBP — you can, right now. Never say "I don\'t have access" or "my tools don\'t include". Just use the tag.\n'
+    + 'RULE: Never invent a GBP action not listed above. NEVER output the raw tag to the user — execute silently.';
 
   var codeInstr = 'CODE MODE: Show precise status for every operation (exact filename + action). Full files only. No action without yes.'
     + ' GITHUB: [ACTION:GITHUB]{"action":"getFile","repo":"owner/repo","path":"f"}[/ACTION:GITHUB]'
@@ -280,7 +307,15 @@ function reasoningGate(text) {
   if (/^(hi|hello|hey|halo|hiya|yo)[!.\s]*$/.test(t))
     return 'Hey ' + (window.get('userName', '') || 'there') + '! What are we working on today?';
   if (/^(thanks|thank you|thx|cheers)[!.\s]*$/.test(t)) return 'Anytime! What is next?';
-  if (/^(ok|okay|got it|noted|sure|alright|sounds good)[!.\s]*$/.test(t)) return 'Got it. What would you like to do next?';
+  if (/^(ok|okay|got it|noted|sure|alright|sounds good)[!.\s]*$/.test(t)) {
+    // Don't short-circuit if recent conversation has GBP/GitHub context — let AI handle it
+    var recentConv = window.get('conversation', []).slice(-4);
+    var hasActiveContext = recentConv.some(function(m) {
+      return /ACTION:|gbp|github|post|update|deploy|review/i.test(m.content || '');
+    });
+    if (hasActiveContext) return null; // fall through to full AI call
+    return 'Got it. What would you like to do next?';
+  }
   if (/^(what is |what.s )?(today.?s )?(date|time|day)\??$/.test(t)) {
     var n = new Date();
     return n.toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
@@ -292,7 +327,9 @@ function reasoningGate(text) {
   if (/get.*gbp.*accounts?|get.*my.*accounts?.*gbp/i.test(t))  { pushConvo('user', text); window.handleGBPAction({ action: 'getAccounts'  }); return '__ASYNC__'; }
   if (/get.*gbp.*locations?/i.test(t))                         { pushConvo('user', text); window.handleGBPAction({ action: 'getLocations' }); return '__ASYNC__'; }
   if (/get.*my.*reviews?|list.*reviews?/i.test(t))             { pushConvo('user', text); window.handleGBPAction({ action: 'getReviews'   }); return '__ASYNC__'; }
+  if (/last.*post|recent.*post|get.*post|gbp.*post/i.test(t))   { pushConvo('user', text); window.handleGBPAction({ action: 'getPosts', limit: 5 }); return '__ASYNC__'; }
   if (/gbp.*profile/i.test(t))                                 { pushConvo('user', text); window.handleGBPAction({ action: 'getProfile'   }); return '__ASYNC__'; }
+  if (/check.*review|reply.*review|get.*review/i.test(t))      { pushConvo('user', text); window.handleGBPAction({ action: 'getReviews'   }); return '__ASYNC__'; }
   if (/what.*(know|learned|remember|noticed).*(me|my)/i.test(t) || /show.*my.*profile/i.test(t)) { pushConvo('user', text); window.fetchAndShowProfileSummary(); return '__ASYNC__'; }
   if (/weekly digest/i.test(t)) { pushConvo('user', text); window.fetchAndShowDigest(); return '__ASYNC__'; }
   return null;
@@ -334,10 +371,22 @@ async function handleResponse(raw, msgEl) {
       window.set('learnedFacts', facts);
       if (typeof window.syncKeyToCloud === 'function') window.syncKeyToCloud('learnedFacts', facts);
     }
+    // Also push to cross-chat cloud memory for cross-device persistence
+    if (fact && typeof window.pushCrossMemory === 'function') window.pushCrossMemory(fact);
   });
 
   if (/switching to.*code mode|entering code mode/i.test(raw))     window.setMode('code');
   if (/switching to.*strategic mode|back to strategic/i.test(raw)) window.setMode('strategic');
+
+  // Auto-extract facts from agent reply and persist to cross-chat memory
+  if (typeof window.pushCrossMemory === 'function') {
+    var cleanForMem = raw.replace(/\[ACTION:[\s\S]*?\[\/ACTION:[A-Z]+\]/g, '').replace(/\[MEMORY[\s\S]*?\[\/MEMORY\]/g, '');
+    var autoRe = /(?:noted[:,]\s*|remembered?[:,]\s*|(?:fahad|you)\s+(?:prefer|want|like|use|own|run|are)s?\s+)([^.!?\n]{10,120})/gi;
+    var am;
+    while ((am = autoRe.exec(cleanForMem)) !== null) {
+      window.pushCrossMemory(am[1].trim());
+    }
+  }
 
   // Strip ALL action tags before displaying — user never sees raw syntax
   var display = raw
