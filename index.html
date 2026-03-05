@@ -2,13 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="Synapse"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#08080a"/>
 <title>SYNAPSE</title>
 <link rel="icon" type="image/png" href="/logo.png"/>
 <link rel="apple-touch-icon" href="/logo.png"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="styles.css"/>
 </head>
 <body>
@@ -75,7 +80,7 @@
             <line x1="12" y1="25" x2="28" y2="25" stroke="url(#sg2)" stroke-width="0.8" opacity="0.3"/>
           </svg>
           <div>
-            <div class="agent-title" id="agentTitle">SYNAPSE</div>
+            <div class="agent-title" id="agentTitle">Synapse</div>
             <div class="agent-subtitle" id="agentSubtitle">Perpetual Intelligence</div>
           </div>
         </div>
@@ -270,8 +275,11 @@
         <line x1="20" y1="20" x2="28" y2="25" stroke="url(#lg)" stroke-width="1.5" opacity="0.4"/>
       </svg>
     </div>
-    <div class="login-title">SYNAPSE</div>
-    <div class="login-sub">Perpetual Intelligence · Sign in to continue</div>
+    <div class="login-brand">
+      <div class="login-brand-name">Synapse</div>
+      <div class="login-brand-tag">Perpetual Intelligence</div>
+    </div>
+    <p class="login-sub-text">Sign in to your private agent</p>
     <div id="loginError" class="login-error"></div>
     <div class="login-field">
       <label for="loginUser">Username</label>
@@ -282,7 +290,10 @@
       <input class="login-input" id="loginPass" type="password" placeholder="••••••••" autocomplete="current-password" onkeydown="loginKey(event)"/>
     </div>
     <button class="login-btn" id="loginBtn" onclick="doLogin()">Sign in</button>
-    <div class="login-footer">SYNAPSE · Private agent system</div>
+    <div class="login-footer">
+      <div class="login-footer-credit">Developed by <strong>Fahad Juma</strong></div>
+      <div class="login-footer-meta">Synapse v2.0 &nbsp;·&nbsp; 2026</div>
+    </div>
   </div>
 </div>
 
